@@ -394,6 +394,7 @@ def main() -> None:
         "compression": "hypertable_compression_stats('caib.events') before/after_compression_total_bytes, after compress_chunk() over ALL chunks",
         "queries_*": "psycopg wall clock, best/worst of 3 consecutive runs each",
         "dedup_reinsert_compressed": "re-COPY of one old day's envelopes + loader drain against fully compressed chunks; asserts zero new rows",
+        "methodology": "single run on a shared machine; expect +-20-30% run-to-run variance (observed: dedup re-insert 14.9k vs 19.3k events/s across runs with no code change on that path)",
     }
 
     from importlib.metadata import version

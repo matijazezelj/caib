@@ -31,7 +31,7 @@
       "id": 1,
       "type": "table",
       "title": "Results",
-      "description": "Substring match over search_text (actor, action, target, src_ip, outcome, attrs values \u2014 never raw). trgm-indexed on the hot uncompressed window (~last 7 days); wider ranges scan compressed history, so keep the time range tight for cold searches. Click attrs/raw cells to inspect the full JSON.",
+      "description": "Substring match over search_text (actor, action, target, src_ip, outcome, attrs values \u2014 never raw). trgm-indexed on the hot uncompressed window (~last 7 days); wider ranges scan compressed history \u2014 measured viable (~0.2s over 30 days at 1M events), cost grows with retention. Click attrs/raw cells to inspect the full JSON; click values to pivot.",
       "gridPos": {
         "h": 18,
         "w": 24,
