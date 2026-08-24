@@ -48,11 +48,14 @@ Enable a module by starting compose with its profile, e.g.
 | Module | Type | Status |
 |---|---|---|
 | `aws_cloudtrail` | push (S3 → SQS → Vector) | ready: ingest + 7 rules + dashboard |
-| `gcp_audit` | push (Pub/Sub → Vector) | planned (Phase 6) |
+| `gcp_audit` | push (Pub/Sub → Vector) | ready: ingest + 5 rules + dashboard; live Pub/Sub verification pending |
+| `azure_activity` | poller (ARM REST) | ready: ingest + 5 rules + dashboard; live verification pending |
 | `cloudflare_audit` | poller | ready: ingest + 5 rules + dashboard; live API verification pending a token |
-| `slack_audit` | poller | planned (Phase 6) |
-| `zoom` | poller | planned (Phase 6) |
-| `knowbe4` | poller | planned (Phase 6) |
+| `slack_audit` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
+| `zoom` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
+| `knowbe4` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
+
+Adding a source? Read [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md).
 
 ## Retention defaults
 

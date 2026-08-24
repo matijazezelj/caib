@@ -1,0 +1,22 @@
+# Sigma: dfaaa5e3-f1f8-4b8e-b422-a0b9bcc70597 (GCP granting owner/editor)
+id: gcp_audit.iam_privileged_grant
+enabled: true
+module: gcp_audit
+title: "GCP IAM policy grants owner/editor role"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')   AS dedup_key,
+    jsonb_build_object('actor', actor, 'resource', target) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'roles', jsonb_agg(DISTINCT attrs->>'roles_added')) AS context,
+    max(event_time)                                         AS last_event_time
+  FROM caib.events
+  WHERE module = 'gcp_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'SetIamPolicy'
+    AND (attrs->>'roles_added' LIKE '%%roles/owner%%'
+         OR attrs->>'roles_added' LIKE '%%roles/editor%%')
+  GROUP BY actor, target

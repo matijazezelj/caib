@@ -1,0 +1,20 @@
+id: azure_activity.role_assignment_created
+enabled: true
+module: azure_activity
+title: "Azure role assignment created"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')      AS dedup_key,
+    jsonb_build_object('actor', actor, 'assignment', target)  AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'resource_groups', jsonb_agg(DISTINCT attrs->>'resource_group')) AS context,
+    max(event_time)                                            AS last_event_time
+  FROM caib.events
+  WHERE module = 'azure_activity'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'Microsoft.Authorization/roleAssignments/write'
+    AND attrs->>'status' = 'Succeeded'
+  GROUP BY actor, target

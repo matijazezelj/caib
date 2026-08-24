@@ -1,0 +1,20 @@
+# Absence shape: silence = broken Pub/Sub subscription, revoked SA key, or a
+# crash-looping Vector. Admin Activity logs are always on, so a healthy
+# project produces events regularly.
+id: gcp_audit.dead_man
+enabled: true
+module: gcp_audit
+title: "gcp_audit has gone silent (no events in 6h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'gcp_audit'                                    AS dedup_key,
+    jsonb_build_object('module', 'gcp_audit')      AS entity,
+    jsonb_build_object('window', '6 hours')        AS context,
+    now()                                          AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'gcp_audit'
+      AND ingested_at > now() - interval '6 hours'
+  )

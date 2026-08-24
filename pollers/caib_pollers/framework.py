@@ -71,6 +71,37 @@ class Ctx:
         raise RuntimeError(f"{self.module}: giving up on GET {url} after {HTTP_ATTEMPTS} attempts ({failure})")
 
 
+class OAuth2ClientCredentials:
+    """Token cache with early refresh for client-credentials flows (Azure ARM,
+    Zoom S2S). Fetch failures raise — same crash-loud semantics as Ctx.get; the
+    module's dead-man rule is the pager for a permanently bad secret."""
+
+    def __init__(
+        self,
+        token_url: str,
+        *,
+        data: dict,
+        basic_auth: tuple[str, str] | None = None,
+        early_refresh_s: float = 300.0,
+    ):
+        self.token_url = token_url
+        self.data = data
+        self.basic_auth = basic_auth
+        self.early_refresh_s = early_refresh_s
+        self._token: str | None = None
+        self._expires_at = 0.0
+
+    def token(self, http: httpx.Client) -> str:
+        if self._token and time.monotonic() < self._expires_at - self.early_refresh_s:
+            return self._token
+        resp = http.post(self.token_url, data=self.data, auth=self.basic_auth)
+        resp.raise_for_status()
+        body = resp.json()
+        self._token = body["access_token"]
+        self._expires_at = time.monotonic() + float(body.get("expires_in", 3600))
+        return self._token
+
+
 class Poller(Protocol):
     module: str
     interval_s: int

@@ -1,0 +1,20 @@
+# Azure's StopLogging analog: someone turning off the telemetry.
+id: azure_activity.diagnostic_settings_deleted
+enabled: true
+module: azure_activity
+title: "Azure diagnostic settings deleted"
+severity: critical
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('actor', actor, 'setting', target) AS entity,
+    jsonb_build_object('events', count(*)::int)           AS context,
+    max(event_time)                                       AS last_event_time
+  FROM caib.events
+  WHERE module = 'azure_activity'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'Microsoft.Insights/diagnosticSettings/delete'
+    AND attrs->>'status' = 'Succeeded'
+  GROUP BY actor, target

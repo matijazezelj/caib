@@ -1,0 +1,21 @@
+# Log Router tampering is GCP's StopLogging analog.
+id: gcp_audit.logging_sink_modified
+enabled: true
+module: gcp_audit
+title: "GCP logging sink deleted or modified"
+severity: critical
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('actor', actor, 'sink', target)    AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action)) AS context,
+    max(event_time)                                        AS last_event_time
+  FROM caib.events
+  WHERE module = 'gcp_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('google.logging.v2.ConfigServiceV2.DeleteSink',
+                   'google.logging.v2.ConfigServiceV2.UpdateSink')
+  GROUP BY actor, target

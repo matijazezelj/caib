@@ -1,0 +1,129 @@
+{
+  "uid": "caib-mod-azure-activity",
+  "title": "CAIB Module: azure_activity",
+  "tags": ["caib", "azure_activity"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Events per hour",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(bucket, '1h') AS time, outcome AS metric, sum(n)::float AS value FROM caib.events_5m WHERE module = 'azure_activity' AND $__timeFilter(bucket) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Top actors (24h)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT actor, sum(n) AS events, sum(failures) AS failures FROM caib.actors_1h WHERE module = 'azure_activity' AND bucket > now() - interval '24 hours' AND actor IS NOT NULL GROUP BY actor ORDER BY events DESC LIMIT 10"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Top operations (24h)",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT action, sum(n) AS events FROM caib.events_5m WHERE module = 'azure_activity' AND bucket > now() - interval '24 hours' GROUP BY action ORDER BY events DESC LIMIT 10"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Recent failed operations",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, actor, action, attrs->>'sub_status' AS sub_status, host(src_ip) AS src_ip FROM caib.events WHERE module = 'azure_activity' AND outcome = 'failure' AND $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 50"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Events by category (24h)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT coalesce(attrs->>'category', 'unknown') AS category, count(*) AS events FROM caib.events WHERE module = 'azure_activity' AND event_time > now() - interval '24 hours' GROUP BY 1 ORDER BY events DESC"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Events by resource group (24h)",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT coalesce(attrs->>'resource_group', '-') AS resource_group, count(*) AS events FROM caib.events WHERE module = 'azure_activity' AND event_time > now() - interval '24 hours' GROUP BY 1 ORDER BY events DESC LIMIT 10"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Raw event stream",
+      "description": "Newest azure_activity events in the selected range. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attrs" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 220 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "raw" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, actor, action, target, outcome, severity, host(src_ip) AS src_ip, attrs::text AS attrs, raw::text AS raw FROM caib.events WHERE module = 'azure_activity' AND $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 100"
+        }
+      ]
+    }
+  ]
+}

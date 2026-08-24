@@ -1,0 +1,19 @@
+# Sigma: 9c6fea48-6b47-4d70-b8fd-2f6ca5aacbd4 (GCP service account key created)
+id: gcp_audit.sa_key_created
+enabled: true
+module: gcp_audit
+title: "GCP service account key created"
+severity: medium
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')          AS dedup_key,
+    jsonb_build_object('actor', actor, 'service_account', target) AS entity,
+    jsonb_build_object('events', count(*)::int)                   AS context,
+    max(event_time)                                               AS last_event_time
+  FROM caib.events
+  WHERE module = 'gcp_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'google.iam.admin.v1.CreateServiceAccountKey'
+  GROUP BY actor, target

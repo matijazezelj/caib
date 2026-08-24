@@ -1,0 +1,19 @@
+# Absence shape: silence = expired client secret (they max out at 2 years and
+# die quietly), revoked app, or a crash-looping poller.
+id: azure_activity.dead_man
+enabled: true
+module: azure_activity
+title: "azure_activity has gone silent (no events in 6h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'azure_activity'                                  AS dedup_key,
+    jsonb_build_object('module', 'azure_activity')    AS entity,
+    jsonb_build_object('window', '6 hours')           AS context,
+    now()                                             AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'azure_activity'
+      AND ingested_at > now() - interval '6 hours'
+  )

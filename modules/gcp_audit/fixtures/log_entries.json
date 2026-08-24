@@ -1,0 +1,76 @@
+[
+  {
+    "insertId": "1a2b3c4d5e6f",
+    "timestamp": "2026-08-23T11:02:15.123456Z",
+    "logName": "projects/acme-prod/logs/cloudaudit.googleapis.com%2Factivity",
+    "severity": "NOTICE",
+    "resource": {
+      "type": "project",
+      "labels": { "project_id": "acme-prod" }
+    },
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "serviceName": "cloudresourcemanager.googleapis.com",
+      "methodName": "SetIamPolicy",
+      "resourceName": "projects/acme-prod",
+      "authenticationInfo": { "principalEmail": "alice@example.com" },
+      "requestMetadata": {
+        "callerIp": "203.0.113.55",
+        "callerSuppliedUserAgent": "google-cloud-sdk gcloud/489.0.0"
+      },
+      "status": {},
+      "serviceData": {
+        "@type": "type.googleapis.com/google.iam.v1.logging.AuditData",
+        "policyDelta": {
+          "bindingDeltas": [
+            { "action": "ADD", "role": "roles/owner", "member": "user:mallory@example.com" }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "insertId": "9f8e7d6c5b4a",
+    "timestamp": "2026-08-23T11:15:40.654321Z",
+    "logName": "projects/acme-prod/logs/cloudaudit.googleapis.com%2Factivity",
+    "severity": "NOTICE",
+    "resource": {
+      "type": "service_account",
+      "labels": { "project_id": "acme-prod", "email_id": "deployer@acme-prod.iam.gserviceaccount.com" }
+    },
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "serviceName": "iam.googleapis.com",
+      "methodName": "google.iam.admin.v1.CreateServiceAccountKey",
+      "resourceName": "projects/acme-prod/serviceAccounts/deployer@acme-prod.iam.gserviceaccount.com",
+      "authenticationInfo": { "principalEmail": "bob@example.com" },
+      "requestMetadata": {
+        "callerIp": "198.51.100.34",
+        "callerSuppliedUserAgent": "Terraform/1.9.0"
+      },
+      "status": {}
+    }
+  },
+  {
+    "insertId": "77aa88bb99cc",
+    "timestamp": "2026-08-23T11:20:05.000111Z",
+    "logName": "projects/acme-prod/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "severity": "ERROR",
+    "resource": {
+      "type": "gcs_bucket",
+      "labels": { "project_id": "acme-prod", "bucket_name": "acme-prod-secrets" }
+    },
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "serviceName": "storage.googleapis.com",
+      "methodName": "storage.objects.get",
+      "resourceName": "projects/_/buckets/acme-prod-secrets/objects/db-creds.json",
+      "authenticationInfo": { "principalEmail": "intern@example.com" },
+      "requestMetadata": {
+        "callerIp": "192.0.2.200",
+        "callerSuppliedUserAgent": "gsutil/5.30"
+      },
+      "status": { "code": 7, "message": "PERMISSION_DENIED" }
+    }
+  }
+]

@@ -1,0 +1,22 @@
+# The request payload (rule direction/CIDR) is not in the Activity Log event,
+# so this alerts on any NSG rule mutation; triage reads raw for the details.
+id: azure_activity.nsg_rule_changed
+enabled: true
+module: azure_activity
+title: "Azure NSG security rule created or changed"
+severity: medium
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('actor', actor, 'rule', target)    AS entity,
+    jsonb_build_object('events', count(*)::int)           AS context,
+    max(event_time)                                       AS last_event_time
+  FROM caib.events
+  WHERE module = 'azure_activity'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('Microsoft.Network/networkSecurityGroups/securityRules/write',
+                   'Microsoft.Network/networkSecurityGroups/securityRules/delete')
+    AND attrs->>'status' = 'Succeeded'
+  GROUP BY actor, target

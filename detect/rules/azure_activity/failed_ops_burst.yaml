@@ -1,0 +1,33 @@
+# Threshold shape: one caller piling up Failed operations is enumeration or a
+# broken automation credential.
+id: azure_activity.failed_ops_burst
+enabled: true
+module: azure_activity
+title: "Azure failed-operations burst by one caller"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  WITH trig AS (
+    SELECT DISTINCT actor
+    FROM caib.events
+    WHERE module = 'azure_activity'
+      AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+      AND outcome = 'failure'
+      AND actor IS NOT NULL
+  )
+  SELECT
+    e.actor                                      AS dedup_key,
+    jsonb_build_object('actor', e.actor)         AS entity,
+    jsonb_build_object(
+      'events', count(*)::int,
+      'operations', jsonb_agg(DISTINCT e.action)
+    )                                            AS context,
+    max(e.event_time)                            AS last_event_time
+  FROM caib.events e
+  JOIN trig t ON t.actor = e.actor
+  WHERE e.module = 'azure_activity'
+    AND e.outcome = 'failure'
+    AND e.event_time > %(wm_to)s::timestamptz - %(lookback)s::interval
+  GROUP BY e.actor
+  HAVING count(*) >= 10

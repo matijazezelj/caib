@@ -1,0 +1,33 @@
+# Threshold shape: an actor hammering into PERMISSION_DENIED is enumeration
+# or a broken-but-trying credential.
+id: gcp_audit.permission_denied_burst
+enabled: true
+module: gcp_audit
+title: "GCP permission_denied burst by one actor"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  WITH trig AS (
+    SELECT DISTINCT actor
+    FROM caib.events
+    WHERE module = 'gcp_audit'
+      AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+      AND attrs->>'permission_denied' = 'true'
+      AND actor IS NOT NULL
+  )
+  SELECT
+    e.actor                                      AS dedup_key,
+    jsonb_build_object('actor', e.actor)         AS entity,
+    jsonb_build_object(
+      'events', count(*)::int,
+      'services', jsonb_agg(DISTINCT e.attrs->>'service_name')
+    )                                            AS context,
+    max(e.event_time)                            AS last_event_time
+  FROM caib.events e
+  JOIN trig t ON t.actor = e.actor
+  WHERE e.module = 'gcp_audit'
+    AND e.attrs->>'permission_denied' = 'true'
+    AND e.event_time > %(wm_to)s::timestamptz - %(lookback)s::interval
+  GROUP BY e.actor
+  HAVING count(*) >= 10

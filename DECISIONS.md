@@ -70,6 +70,19 @@ through Vector"), better isolation, profile-pure.
 - `localstack/localstack:latest` (2026.x) now requires a license token and exits without
   one; tests pin `localstack/localstack:4.14`, the last community series.
 
+## 2026-08-24 — Phase 6 rescoped (user-directed): major clouds first, SaaS modules deferred
+
+Spec Phase 6 called for gcp_audit + slack_audit + zoom + knowbe4. User redirected:
+build **gcp_audit** and a new **azure_activity** module (not in the spec — Azure
+Activity Log via ARM REST poller with the framework's new OAuth2 client-credentials
+helper) so the three major clouds + Cloudflare are covered, all on SYNTHETIC fixtures
+with live verification pending. slack_audit / zoom / knowbe4 are deferred to detailed
+build recipes in docs/NEW_MODULE_HOWTO.md (they also need vendor accounts we don't
+have: Enterprise Grid, Zoom S2S app, KnowBe4 key).
+
+Related detail: the spec's "3–5 seed rules per module" guideline conflicts with its own
+zoom/knowbe4 lists (2 each); the recipes follow the explicit lists.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

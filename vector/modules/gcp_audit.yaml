@@ -1,0 +1,58 @@
+# GCP Cloud Audit Logs -> Log Router sink -> Pub/Sub -> here. With
+# decoding.codec json, each Pub/Sub message (one LogEntry) is parsed into the
+# event root, so the remap reads LogEntry fields directly.
+sources:
+  gcp_audit_pubsub:
+    type: gcp_pubsub
+    project: "${CAIB_GCP_PROJECT}"
+    subscription: "${CAIB_GCP_SUBSCRIPTION}"
+    credentials_path: /gcp/credentials.json
+    decoding:
+      codec: json
+
+transforms:
+  remap_gcp_audit:
+    type: remap
+    inputs: ["gcp_audit_pubsub"]
+    source: |
+      proto = object(.protoPayload) ?? {}
+      status = object(proto.status) ?? {}
+      code = to_int(status.code) ?? 0
+      auth = object(proto.authenticationInfo) ?? {}
+      meta = object(proto.requestMetadata) ?? {}
+      deltas = array(proto.serviceData.policyDelta.bindingDeltas) ?? []
+      added = filter(deltas) -> |_i, d| {
+        d = object(d) ?? {}
+        (to_string(d.action) ?? "") == "ADD"
+      }
+      roles = map_values(added) -> |d| {
+        d = object(d) ?? {}
+        to_string(d.role) ?? ""
+      }
+      roles_added = if length(roles) > 0 { join(roles, ",") ?? null } else { null }
+      sev = to_string(.severity) ?? ""
+      outcome = if code == 0 { "success" } else { "failure" }
+      severity = if sev == "ERROR" { "low" } else { "info" }
+      denied = code == 7
+      attrs = compact({
+        "service_name": proto.serviceName,
+        "log_id": .logName,
+        "permission_denied": denied,
+        "roles_added": roles_added
+      })
+      . = {
+        "received_at": now(),
+        "module": "gcp_audit",
+        "payload": {
+          "event_time": .timestamp,
+          "event_id": .insertId,
+          "actor": auth.principalEmail,
+          "src_ip": meta.callerIp,
+          "action": proto.methodName,
+          "target": proto.resourceName,
+          "outcome": outcome,
+          "severity": severity,
+          "attrs": attrs,
+          "raw": .
+        }
+      }

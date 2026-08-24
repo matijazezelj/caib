@@ -1,0 +1,49 @@
+{
+  "value": [
+    {
+      "eventDataId": "5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b",
+      "eventTimestamp": "2026-08-23T12:25:44.0000000Z",
+      "caller": "carol@example.com",
+      "operationName": {
+        "value": "Microsoft.Network/networkSecurityGroups/securityRules/write",
+        "localizedValue": "Create or update security rule"
+      },
+      "category": { "value": "Administrative", "localizedValue": "Administrative" },
+      "resourceGroupName": "prod-rg",
+      "resourceProviderName": { "value": "Microsoft.Network" },
+      "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/prod-rg/providers/Microsoft.Network/networkSecurityGroups/prod-nsg/securityRules/allow-ssh",
+      "status": { "value": "Succeeded", "localizedValue": "Succeeded" },
+      "level": "Informational",
+      "httpRequest": {
+        "clientRequestId": "f3a4b5c6-d7e8-99aa-bbcc-ddeeff001122",
+        "clientIpAddress": "203.0.113.91",
+        "method": "PUT"
+      },
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "correlationId": "33334444-5555-6666-7777-888899990000"
+    },
+    {
+      "eventDataId": "0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+      "eventTimestamp": "2026-08-23T12:31:12.0000000Z",
+      "caller": "svc-deployer@example.com",
+      "operationName": {
+        "value": "Microsoft.Compute/virtualMachines/write",
+        "localizedValue": "Create or update virtual machine"
+      },
+      "category": { "value": "Administrative", "localizedValue": "Administrative" },
+      "resourceGroupName": "prod-rg",
+      "resourceProviderName": { "value": "Microsoft.Compute" },
+      "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/web-01",
+      "status": { "value": "Failed", "localizedValue": "Failed" },
+      "subStatus": { "value": "Forbidden", "localizedValue": "Forbidden (HTTP Status Code: 403)" },
+      "level": "Error",
+      "httpRequest": {
+        "clientRequestId": "a4b5c6d7-e8f9-aabb-ccdd-eeff00112233",
+        "clientIpAddress": "192.0.2.150",
+        "method": "PUT"
+      },
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "correlationId": "44445555-6666-7777-8888-999900001111"
+    }
+  ]
+}

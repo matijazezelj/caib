@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "core"))
 sys.path.insert(0, str(ROOT / "pollers"))
 
 from caib_core import detect, loader, notify
+from caib_pollers.modules.azure_activity import envelope as az_envelope
 from caib_pollers.modules.cloudflare_audit import envelope as cf_envelope
 
 UTC = datetime.UTC
@@ -65,6 +66,35 @@ def ct_envelope(record: dict) -> dict:
         "severity": "info",
         "attrs": {k: v for k, v in attrs.items() if v is not None},
         "raw": record,
+    }
+
+
+def gcp_envelope(entry: dict) -> dict:
+    """Python mirror of the GCP VRL remap — demo-only, so fixture LogEntries
+    can be seeded without running Vector."""
+    proto = entry.get("protoPayload") or {}
+    code = (proto.get("status") or {}).get("code", 0)
+    deltas = ((proto.get("serviceData") or {}).get("policyDelta") or {}).get(
+        "bindingDeltas"
+    ) or []
+    roles = [d.get("role", "") for d in deltas if d.get("action") == "ADD"]
+    attrs = {
+        "service_name": proto.get("serviceName"),
+        "log_id": entry.get("logName"),
+        "permission_denied": code == 7,
+        "roles_added": ",".join(roles) if roles else None,
+    }
+    return {
+        "event_time": entry.get("timestamp"),
+        "event_id": entry.get("insertId"),
+        "actor": (proto.get("authenticationInfo") or {}).get("principalEmail"),
+        "src_ip": (proto.get("requestMetadata") or {}).get("callerIp"),
+        "action": proto.get("methodName"),
+        "target": proto.get("resourceName"),
+        "outcome": "success" if code == 0 else "failure",
+        "severity": "low" if entry.get("severity") == "ERROR" else "info",
+        "attrs": {k: v for k, v in attrs.items() if v is not None},
+        "raw": entry,
     }
 
 
@@ -123,18 +153,26 @@ def main() -> None:
         cf_records.extend(
             json.loads((ROOT / "modules/cloudflare_audit/fixtures" / page).read_text())["result"]
         )
+    gcp_entries = json.loads(
+        (ROOT / "modules/gcp_audit/fixtures/log_entries.json").read_text()
+    )
+    az_records = []
+    for page in ("activity_page1.json", "activity_page2.json"):
+        az_records.extend(
+            json.loads((ROOT / "modules/azure_activity/fixtures" / page).read_text())["value"]
+        )
 
+    module_envelopes = (
+        [("aws_cloudtrail", ct_envelope(r)) for r in ct_records]
+        + [("cloudflare_audit", cf_envelope(r)) for r in cf_records]
+        + [("gcp_audit", gcp_envelope(e)) for e in gcp_entries]
+        + [("azure_activity", az_envelope(r)) for r in az_records]
+    )
     batches: list[tuple[str, dict]] = []
     i = 0
-    for record in ct_records:
-        env = ct_envelope(record)
+    for module, env in module_envelopes:
         for ts in demo_timestamps(rng, CLONES_PER_RECORD, now):
-            batches.append(("aws_cloudtrail", clone(env, ts, i)))
-            i += 1
-    for record in cf_records:
-        env = cf_envelope(record)
-        for ts in demo_timestamps(rng, CLONES_PER_RECORD, now):
-            batches.append(("cloudflare_audit", clone(env, ts, i)))
+            batches.append((module, clone(env, ts, i)))
             i += 1
     for env in brute_force_burst(now):
         batches.append(("aws_cloudtrail", env))
