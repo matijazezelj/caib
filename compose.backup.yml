@@ -1,0 +1,29 @@
+# Optional overlay: pgBackRest-enabled dev node with WAL archiving to a local
+# posix repo volume. Used by `make restore-test`; for real deployments point
+# the repo at S3/MinIO (docs/BACKUPS.md).
+#
+#   docker compose -f docker-compose.yml -f compose.backup.yml up -d --build
+services:
+  timescaledb:
+    image: caib-timescaledb-backup:dev
+    build:
+      context: ./backup
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
+      - -c
+      - default_toast_compression=lz4
+      - -c
+      - timezone=UTC
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=caib archive-push %p
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./backup/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
+      - backrest_repo:/var/lib/pgbackrest
+
+volumes:
+  backrest_repo:

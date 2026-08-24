@@ -42,5 +42,8 @@ ha-logs:
 ha-failover-test:
 	bash scripts/ha_failover_test.sh
 
+restore-test: .env
+	bash scripts/restore_test.sh
+
 new-module:
 	@echo "$@: not built yet — see docs/NEW_MODULE_HOWTO.md for the manual recipe"; exit 1

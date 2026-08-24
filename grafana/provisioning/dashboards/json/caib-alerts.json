@@ -92,7 +92,7 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT count(*) FILTER (WHERE status = 'open')::int AS \"Open\", count(*) FILTER (WHERE status = 'open' AND severity IN ('critical','high'))::int AS \"Critical/high open\", count(*) FILTER (WHERE first_seen > now() - interval '24 hours')::int AS \"New (24h)\", count(*) FILTER (WHERE last_seen > now() - interval '24 hours' AND first_seen <= now() - interval '24 hours')::int AS \"Recurring (24h)\" FROM detect.alerts"
+          "rawSql": "SELECT count(*) FILTER (WHERE status = 'open')::int AS \"Open\", count(*) FILTER (WHERE status = 'open' AND severity IN ('critical','high'))::int AS \"Critical/high open\", count(*) FILTER (WHERE first_seen > now() - interval '24 hours')::int AS \"New (24h)\", count(*) FILTER (WHERE last_seen > now() - interval '24 hours' AND event_count > 1)::int AS \"Recurring (24h)\" FROM detect.alerts"
         }
       ]
     },
