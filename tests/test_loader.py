@@ -1,13 +1,9 @@
 import datetime
 import hashlib
-import pathlib
 
 import psycopg
-import pytest
-from caib_core import loader, migrate
+from caib_core import loader
 from psycopg.types.json import Jsonb
-
-MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "db" / "migrations"
 
 UTC = datetime.UTC
 
@@ -27,14 +23,6 @@ def envelope(**overrides) -> dict:
     }
     env.update(overrides)
     return env
-
-
-@pytest.fixture()
-def migrated_db(pg_db_url: str, monkeypatch) -> str:
-    monkeypatch.setenv("CAIB_PG_APP_PASSWORD", "app-test-pw")
-    monkeypatch.setenv("CAIB_PG_RO_PASSWORD", "ro-test-pw")
-    migrate.run(pg_db_url, MIGRATIONS_DIR)
-    return pg_db_url
 
 
 def land(conn: psycopg.Connection, envelopes: list[dict], module: str = "testmod") -> None:

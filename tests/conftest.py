@@ -4,15 +4,21 @@ CI sets CAIB_TEST_PG_URL to a service container. Locally we start a throwaway
 timescaledb container for the session and remove it afterwards.
 """
 
+import datetime
+import logging
 import os
+import pathlib
 import subprocess
 import time
 import uuid
 
 import psycopg
 import pytest
+from caib_core import migrate
+from caib_pollers.framework import Ctx
 
 TSDB_IMAGE = "timescale/timescaledb:2.29.2-pg18"
+MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "db" / "migrations"
 
 
 def _wait_ready(url: str, timeout_s: float = 90.0) -> None:
@@ -71,3 +77,22 @@ def pg_db_url(pg_server_url: str) -> str:
     yield url
     with psycopg.connect(pg_server_url, autocommit=True) as conn:
         conn.execute(f'DROP DATABASE "{dbname}" WITH (FORCE)')
+
+
+@pytest.fixture()
+def migrated_db(pg_db_url: str, monkeypatch) -> str:
+    monkeypatch.setenv("CAIB_PG_APP_PASSWORD", "app-test-pw")
+    monkeypatch.setenv("CAIB_PG_RO_PASSWORD", "ro-test-pw")
+    migrate.run(pg_db_url, MIGRATIONS_DIR)
+    return pg_db_url
+
+
+@pytest.fixture()
+def dummy_ctx() -> Ctx:
+    """A Ctx for pollers that never touch HTTP in the test."""
+    return Ctx(
+        module="testmod",
+        backfill_start=datetime.datetime(2026, 8, 23, tzinfo=datetime.UTC),
+        log=logging.getLogger("test"),
+        http=None,
+    )

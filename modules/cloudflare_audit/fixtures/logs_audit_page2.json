@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "77e614dc-90cb-4b12-a2f4-6e94c1d0a983",
+      "action": {
+        "type": "login",
+        "description": "User login failed",
+        "result": false,
+        "time": "2026-08-23T10:02:19Z"
+      },
+      "actor": {
+        "id": "f6b5d3a2c1e0987654321fedcba09876",
+        "email": "alice@example.com",
+        "type": "user",
+        "context": "dash",
+        "ip_address": "203.0.113.99"
+      },
+      "account": { "id": "0123456789abcdef0123456789abcdef", "name": "Example Corp" },
+      "resource": {
+        "id": "f6b5d3a2c1e0987654321fedcba09876",
+        "type": "user",
+        "product": "iam",
+        "scope": "account"
+      },
+      "raw": {
+        "cf_ray_id": "8a1b2c3d4e5f6a7d",
+        "method": "POST",
+        "status_code": 403,
+        "uri": "/api/v4/login",
+        "user_agent": "Mozilla/5.0"
+      }
+    }
+  ],
+  "result_info": { "count": 1 }
+}

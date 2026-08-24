@@ -1,0 +1,71 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "d5b0f326-1232-4452-8858-1089bd7168ef",
+      "action": {
+        "type": "token_create",
+        "description": "API token created",
+        "result": true,
+        "time": "2026-08-23T09:15:04Z"
+      },
+      "actor": {
+        "id": "f6b5d3a2c1e0987654321fedcba09876",
+        "email": "alice@example.com",
+        "type": "user",
+        "context": "dash",
+        "ip_address": "203.0.113.44"
+      },
+      "account": { "id": "0123456789abcdef0123456789abcdef", "name": "Example Corp" },
+      "resource": {
+        "id": "b8c1d2e3f4a5968778695a4b3c2d1e0f",
+        "type": "api_token",
+        "product": "iam",
+        "scope": "account"
+      },
+      "raw": {
+        "cf_ray_id": "8a1b2c3d4e5f6a7b",
+        "method": "POST",
+        "status_code": 201,
+        "uri": "/client/v4/user/tokens",
+        "user_agent": "Mozilla/5.0"
+      }
+    },
+    {
+      "id": "1f2e3d4c-5b6a-7988-a7b6-c5d4e3f2a1b0",
+      "action": {
+        "type": "dns_record_delete",
+        "description": "DNS record deleted",
+        "result": true,
+        "time": "2026-08-23T09:47:31Z"
+      },
+      "actor": {
+        "id": "aabbccddeeff00112233445566778899",
+        "email": "",
+        "type": "user",
+        "context": "api",
+        "ip_address": "198.51.100.12",
+        "token_id": "0011223344556677889900aabbccddee",
+        "token_name": "terraform-dns"
+      },
+      "account": { "id": "0123456789abcdef0123456789abcdef", "name": "Example Corp" },
+      "resource": {
+        "id": "9f8e7d6c5b4a39281706f5e4d3c2b1a0",
+        "type": "dns_record",
+        "product": "dns",
+        "scope": "zone"
+      },
+      "zone": { "id": "5566778899aabbccddeeff0011223344", "name": "example.com" },
+      "raw": {
+        "cf_ray_id": "8a1b2c3d4e5f6a7c",
+        "method": "DELETE",
+        "status_code": 200,
+        "uri": "/client/v4/zones/5566778899aabbccddeeff0011223344/dns_records/9f8e7d6c5b4a39281706f5e4d3c2b1a0",
+        "user_agent": "terraform-provider-cloudflare/4.30.0"
+      }
+    }
+  ],
+  "result_info": { "count": 2, "cursor": "dGhpc19pc19hX2N1cnNvcg" }
+}

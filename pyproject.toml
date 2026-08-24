@@ -2,7 +2,7 @@
 name = "caib"
 version = "0.0.0"
 requires-python = ">=3.12"
-dependencies = ["caib-core"]
+dependencies = ["caib-core", "caib-pollers"]
 
 [dependency-groups]
 dev = [
@@ -14,10 +14,11 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["core"]
+members = ["core", "pollers"]
 
 [tool.uv.sources]
 caib-core = { workspace = true }
+caib-pollers = { workspace = true }
 
 [tool.ruff]
 line-length = 100

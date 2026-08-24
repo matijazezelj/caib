@@ -44,6 +44,39 @@ services:
         condition: service_healthy
     restart: "no"
 
+  loader:
+    image: caib-core:dev
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    command: ["loader"]
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_LOADER_BATCH: ${CAIB_LOADER_BATCH:-5000}
+      CAIB_LOADER_INTERVAL_S: ${CAIB_LOADER_INTERVAL_S:-5}
+      CAIB_DROP_RAW: ${CAIB_DROP_RAW:-false}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  poller-cloudflare-audit:
+    image: caib-poller:dev
+    build:
+      context: .
+      dockerfile: pollers/Dockerfile
+    profiles: ["cloudflare_audit"]
+    environment:
+      CAIB_MODULE: cloudflare_audit
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_CLOUDFLARE_API_TOKEN: ${CAIB_CLOUDFLARE_API_TOKEN:-}
+      CAIB_CLOUDFLARE_ACCOUNT_ID: ${CAIB_CLOUDFLARE_ACCOUNT_ID:-}
+      CAIB_CLOUDFLARE_AUDIT_BACKFILL: ${CAIB_CLOUDFLARE_AUDIT_BACKFILL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.4.9
     environment:
