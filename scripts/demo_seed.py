@@ -218,7 +218,7 @@ def main() -> None:
             if stats and stats["rows"]:
                 fired += stats["rows"]
                 print(f"  rule {rule.id}: {stats['rows']} alert(s)")
-        notify.drain(conn, cfg.webhook_url)
+        notify.drain(conn, cfg.webhook_url, fmt=cfg.notify_format)
 
         n_alerts = conn.execute("SELECT count(*) FROM detect.alerts").fetchone()[0]
         n_events = conn.execute("SELECT count(*) FROM caib.events").fetchone()[0]

@@ -107,6 +107,25 @@ Two additions to the spec's HAProxy config: a `resolvers docker` section with
 `init-addr libc,none` (containers change IP across restarts; the static config would pin
 first-seen IPs and never re-admit a restarted node) and a `global maxconn`.
 
+## 2026-08-24 — BM25 verification spike: pg_textsearch stays OFF (spec §Analyst search)
+
+Empirical findings (2026-08-24):
+
+- `pg_textsearch` **ships in `timescale/timescaledb-ha:pg18.4-ts2.29.2`** (the HA image)
+  together with vectorscale, and works without any `shared_preload_libraries` entry:
+  `CREATE EXTENSION pg_textsearch` succeeds plain.
+- The `bm25` access method **works on hypertables**: `CREATE INDEX ... USING bm25 (col)`
+  propagates to chunk indexes (`_hyper_*_chunk_*_bm25`). Query operator is `<@>`.
+- `pg_textsearch` is **absent from `timescale/timescaledb:2.29.2-pg18`** (the alpine dev
+  image) — no package, no .control file.
+- Write overhead at ingest rates: unmeasured (moot given the above).
+
+Verdict per the spec's gate ("if any of it fails, trgm is the answer and BM25 stays
+off"): the dev-image criterion fails, so **BM25 stays off** and no `CAIB_SEARCH_BM25`
+flag is wired. Revisit if the alpine image ever ships pg_textsearch, or if a deployment
+standardizes on the timescaledb-ha image for single-node too — the hypertable mechanics
+are proven to work.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

@@ -97,13 +97,51 @@
       "type": "table",
       "title": "Timescale job errors (24h)",
       "description": "Compression/retention/cagg-refresh jobs are infrastructure too.",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 },
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
       "targets": [
         {
           "refId": "A",
           "format": "table",
           "rawSql": "SELECT job_id, proc_name, pid, start_time, finish_time, sqlerrcode, err_message FROM timescaledb_information.job_errors WHERE finish_time > now() - interval '24 hours' ORDER BY finish_time DESC LIMIT 50"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Ingest lag by module",
+      "description": "Time since each module's newest event. Vendor delivery lag dominates (CloudTrail alone batches ~5-15 min); sustained growth = a stuck source. The dead-man rules page on this too.",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "lag_seconds" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 3600 },
+                    { "color": "red", "value": 21600 }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT module, extract(epoch FROM now() - max(event_time))::int AS lag_seconds, max(event_time) AS newest_event FROM caib.events GROUP BY module ORDER BY lag_seconds DESC"
         }
       ]
     },

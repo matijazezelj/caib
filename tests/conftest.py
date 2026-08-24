@@ -88,6 +88,32 @@ def migrated_db(pg_db_url: str, monkeypatch) -> str:
 
 
 @pytest.fixture()
+def webhook_capture():
+    """Local HTTP server capturing JSON POSTs: yields (url, received_list)."""
+    import http.server
+    import json
+    import threading
+
+    received: list[dict] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            received.append(json.loads(body))
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_port}/hook", received
+    server.shutdown()
+
+
+@pytest.fixture()
 def dummy_ctx() -> Ctx:
     """A Ctx for pollers that never touch HTTP in the test."""
     return Ctx(
