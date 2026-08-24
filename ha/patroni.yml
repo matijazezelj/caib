@@ -1,0 +1,40 @@
+# Shared Patroni config for all HA nodes. Node-specific values (name, connect
+# addresses) come from PATRONI_* env vars in compose.ha.yml, which override
+# this file. Bootstrap DCS settings live here because they are not
+# env-mappable.
+scope: caib
+
+etcd3:
+  host: etcd:2379
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: localhost:8008  # overridden per node via env
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        shared_preload_libraries: timescaledb
+        default_toast_compression: lz4
+        timezone: UTC
+        max_connections: 100
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+  post_init: /etc/caib-post-init.sh
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: localhost:5432  # overridden per node via env
+  data_dir: /home/postgres/pgdata/data
+  bin_dir: /usr/lib/postgresql/18/bin
+  pg_hba:
+    - local all all trust
+    - host all all 0.0.0.0/0 scram-sha-256
+    - host replication standby 0.0.0.0/0 scram-sha-256

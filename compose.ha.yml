@@ -1,0 +1,133 @@
+# HA overlay: Patroni x3 + etcd + HAProxy. Lab-shaped — one etcd (run 3 for
+# anything real), all on one host. Usage: make ha-up / make ha-failover-test.
+#
+# Node image is timescale/timescaledb-ha (TSL build + Patroni bundled) — the
+# spec's Spilo plan was dropped because published Spilo images ship the
+# Apache-only TimescaleDB build (see DECISIONS.md). Service names stay
+# spilo1..3 to match the spec's HAProxy config.
+services:
+  # Dev single node is replaced by the cluster; park it behind an unused
+  # profile so the overlay never starts it.
+  timescaledb:
+    profiles: ["single-node-disabled"]
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.6.4
+    command:
+      - etcd
+      - --name=etcd0
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd:2380
+      - --initial-cluster=etcd0=http://etcd:2380
+    volumes:
+      - etcd_data:/etcd-data
+    restart: unless-stopped
+
+  spilo1: &spilo
+    image: timescale/timescaledb-ha:pg18.4-ts2.29.2
+    command: ["patroni", "/etc/patroni.yml"]
+    environment: &spilo_env
+      PATRONI_NAME: spilo1
+      PATRONI_RESTAPI_CONNECT_ADDRESS: spilo1:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: spilo1:5432
+      PATRONI_SUPERUSER_USERNAME: postgres
+      PATRONI_SUPERUSER_PASSWORD: ${CAIB_PG_SUPERPASS:?set in .env}
+      PATRONI_REPLICATION_USERNAME: standby
+      PATRONI_REPLICATION_PASSWORD: ${CAIB_HA_REPLICATION_PASSWORD:-caib-dev-replication}
+    volumes:
+      - ./ha/patroni.yml:/etc/patroni.yml:ro
+      - ./ha/post_init.sh:/etc/caib-post-init.sh:ro
+      - spilo1_data:/home/postgres/pgdata
+    ports:
+      - "127.0.0.1:8008:8008"
+    depends_on:
+      - etcd
+    restart: unless-stopped
+
+  spilo2:
+    <<: *spilo
+    environment:
+      <<: *spilo_env
+      PATRONI_NAME: spilo2
+      PATRONI_RESTAPI_CONNECT_ADDRESS: spilo2:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: spilo2:5432
+    volumes:
+      - ./ha/patroni.yml:/etc/patroni.yml:ro
+      - ./ha/post_init.sh:/etc/caib-post-init.sh:ro
+      - spilo2_data:/home/postgres/pgdata
+    ports:
+      - "127.0.0.1:8009:8008"
+
+  spilo3:
+    <<: *spilo
+    environment:
+      <<: *spilo_env
+      PATRONI_NAME: spilo3
+      PATRONI_RESTAPI_CONNECT_ADDRESS: spilo3:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: spilo3:5432
+    volumes:
+      - ./ha/patroni.yml:/etc/patroni.yml:ro
+      - ./ha/post_init.sh:/etc/caib-post-init.sh:ro
+      - spilo3_data:/home/postgres/pgdata
+    ports:
+      - "127.0.0.1:8010:8008"
+
+  haproxy:
+    image: haproxy:3.2-alpine
+    volumes:
+      - ./ha/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "127.0.0.1:5000:5000"
+      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:7000:7000"
+    depends_on:
+      - spilo1
+      - spilo2
+      - spilo3
+    restart: unless-stopped
+
+  # Writers go through haproxy:5000 (primary), Grafana through :5001
+  # (read-only; matches primary too, so dashboards survive replica loss).
+  migrate:
+    depends_on: !override
+      haproxy:
+        condition: service_started
+    environment:
+      CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@haproxy:5000/caib
+
+  loader:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+  detect:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+  grafana:
+    environment:
+      CAIB_GRAFANA_DS_URL: haproxy:5001
+
+  poller-cloudflare-audit:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+  poller-azure-activity:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+  vector-aws-cloudtrail:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+  vector-gcp-audit:
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+
+volumes:
+  etcd_data:
+  spilo1_data:
+  spilo2_data:
+  spilo3_data:

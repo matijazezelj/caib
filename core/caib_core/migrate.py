@@ -13,6 +13,7 @@ import logging
 import os
 import pathlib
 import re
+import time
 
 import psycopg
 from psycopg import sql
@@ -196,8 +197,25 @@ def sync_grants(conn: psycopg.Connection) -> None:
         )
 
 
-def run(super_url: str, migrations_dir: pathlib.Path) -> int:
-    with psycopg.connect(super_url, autocommit=True) as conn:
+def _connect_with_retry(url: str, timeout_s: float) -> psycopg.Connection:
+    """HA clusters elect a leader before accepting writes; wait for it instead
+    of failing the one-shot migrate container."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            return psycopg.connect(url, autocommit=True, connect_timeout=5)
+        except psycopg.OperationalError as exc:
+            if time.monotonic() > deadline:
+                raise
+            log.info("database not ready (%s); retrying", exc)
+            time.sleep(2)
+
+
+def run(super_url: str, migrations_dir: pathlib.Path, wait_s: float = 0) -> int:
+    with (
+        _connect_with_retry(super_url, wait_s) if wait_s
+        else psycopg.connect(super_url, autocommit=True)
+    ) as conn:
         bootstrap(conn)
         count = apply_pending(conn, migrations_dir)
         sync_passwords(conn)
@@ -210,5 +228,6 @@ def main() -> None:
         level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
     )
     migrations_dir = pathlib.Path(os.environ.get("CAIB_MIGRATIONS_DIR", "db/migrations"))
-    count = run(os.environ["CAIB_PG_SUPER_URL"], migrations_dir)
+    wait_s = float(os.environ.get("CAIB_MIGRATE_WAIT_S", "120"))
+    count = run(os.environ["CAIB_PG_SUPER_URL"], migrations_dir, wait_s=wait_s)
     log.info("migrate done: %d migration(s) applied", count)

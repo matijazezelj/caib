@@ -92,6 +92,21 @@ that already has compressed chunks (tests/test_search.py). Remaining Phase 8 ite
 spike, Sigma→SQL, Slack Block Kit, per-module ingest-lag panel, pgBackRest docs) and all
 of Phase 7 (HA) are still open. Phase-ordering deviation is deliberate.
 
+## 2026-08-24 — Phase 7 HA: timescale/timescaledb-ha instead of Spilo
+
+The spec planned Zalando Spilo with a build-time TSL verification. Verified instead that
+**published Spilo images ship the Apache-only TimescaleDB** (`TIMESCALEDB_APACHE_ONLY=true`
+default build arg), which the licensing note rules out — using them would need a full
+source rebuild. `timescale/timescaledb-ha:pg18.4-ts2.29.2` is strictly better: TSL build
+maintained by Timescale, Patroni 4.1.5 with etcd3 support bundled, arm64+amd64. Node
+services keep the spec's `spilo1..3` names so the HAProxy config matches the spec.
+Verified in `make ha-failover-test`: `SHOW timescaledb.license` = `timescale` on the
+cluster, election in ~3s, zero loss under 20 inserts/s, jobs follow the primary.
+
+Two additions to the spec's HAProxy config: a `resolvers docker` section with
+`init-addr libc,none` (containers change IP across restarts; the static config would pin
+first-seen IPs and never re-admit a restarted node) and a `global maxconn`.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

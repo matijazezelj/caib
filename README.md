@@ -86,6 +86,33 @@ Enable a module by starting compose with its profile, e.g.
 
 Adding a source? Read [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md).
 
+## High availability
+
+```sh
+make ha-up             # Patroni x3 + etcd + HAProxy (lab, single host)
+make ha-failover-test  # kills the primary under write load; asserts zero loss
+make ha-down
+```
+
+The HA overlay (`compose.ha.yml`) runs three `timescale/timescaledb-ha` nodes
+(TSL TimescaleDB + Patroni) with etcd as DCS and HAProxy in front: writers use
+`:5000` (primary only), Grafana uses `:5001` (replicas *and* primary, so
+dashboards survive replica loss). Timescale's compression/retention/cagg jobs
+follow the primary automatically — they're catalog state, not node state.
+
+**Promoting the lab overlay to real hosts:**
+
+- Run **3 etcd nodes** (the overlay runs 1 — fine for a lab, a single point of
+  failure anywhere real). Point `ha/patroni.yml`'s `etcd3.host` at the cluster.
+- One database node per host; replace the compose DNS names in
+  `PATRONI_*_CONNECT_ADDRESS` and `ha/haproxy.cfg` with real host addresses
+  (and drop the `resolvers docker` section — it exists for container DNS).
+- Run HAProxy on 2+ hosts with a VIP (keepalived) or use client-side
+  multi-host connection strings.
+- Give each node local NVMe for `PGDATA`; set `shared_buffers` etc. for the
+  hardware (the overlay ships Postgres defaults).
+- Add backups before you need them: pgBackRest docs are planned in Phase 8.
+
 ## Retention defaults
 
 Events: compressed after 7 days, dropped after 90 days. Continuous aggregates

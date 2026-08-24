@@ -1,6 +1,7 @@
 COMPOSE ?= docker compose
+COMPOSE_HA ?= docker compose -f docker-compose.yml -f compose.ha.yml
 
-.PHONY: up down logs migrate test demo bench ha-up ha-failover-test new-module
+.PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test new-module
 
 .env:
 	cp .env.example .env
@@ -28,5 +29,18 @@ bench:
 demo: .env
 	@set -a; . ./.env; set +a; uv run python scripts/demo_seed.py
 
-ha-up ha-failover-test new-module:
-	@echo "$@: not built yet — see Build phases in caib-build-spec.md"; exit 1
+ha-up: .env
+	$(COMPOSE) down --remove-orphans
+	$(COMPOSE_HA) up -d --build
+
+ha-down:
+	$(COMPOSE_HA) down --remove-orphans
+
+ha-logs:
+	$(COMPOSE_HA) logs -f --tail=200
+
+ha-failover-test:
+	bash scripts/ha_failover_test.sh
+
+new-module:
+	@echo "$@: not built yet — see docs/NEW_MODULE_HOWTO.md for the manual recipe"; exit 1
