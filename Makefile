@@ -22,5 +22,8 @@ test:
 	uv run ruff check .
 	uv run pytest -q
 
-demo bench ha-up ha-failover-test new-module:
+bench:
+	uv run python scripts/bench.py
+
+demo ha-up ha-failover-test new-module:
 	@echo "$@: not built yet — see Build phases in caib-build-spec.md"; exit 1

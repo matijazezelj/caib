@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-08-24T18:09:23.401337+00:00",
+  "image": "timescale/timescaledb:2.29.2-pg18",
+  "n_events": 1000000,
+  "seed": 20260824,
+  "module_mix": {
+    "aws_cloudtrail": 0.6,
+    "gcp_audit": 0.25,
+    "slack_audit": 0.15
+  },
+  "raw_json_bytes": 1034809866,
+  "landing_copy": {
+    "seconds": 14.4,
+    "events_per_s": 69422
+  },
+  "loader": {
+    "seconds": 32.1,
+    "events_per_s": 31200
+  },
+  "hot": {
+    "heap_bytes": 1280229376,
+    "toast_bytes": 262144,
+    "index_bytes": 240435200,
+    "total_bytes": 1520926720,
+    "indexes": {
+      "events_pkey": 86106112,
+      "events_module_time": 50626560,
+      "events_actor_time": 70811648,
+      "events_ingested_brin": 786432
+    }
+  },
+  "search_text_bytes": 138591986,
+  "queries_uncompressed": {
+    "module_time_filter_3d": {
+      "best_s": 0.0206,
+      "worst_s": 0.512
+    },
+    "actor_top10_7d": {
+      "best_s": 0.1114,
+      "worst_s": 0.5263
+    },
+    "search_ilike_30d": {
+      "best_s": 0.4072,
+      "worst_s": 0.8888
+    }
+  },
+  "compress_all_seconds": 15.7,
+  "compression": {
+    "before_bytes": 1520836608,
+    "after_bytes": 215695360,
+    "ratio": 7.05
+  },
+  "compressed": {
+    "heap_bytes": 4980736,
+    "toast_bytes": 210468864,
+    "index_bytes": 3129344,
+    "total_bytes": 218578944,
+    "indexes": {
+      "events_pkey": 262144,
+      "events_module_time": 262144,
+      "events_actor_time": 262144,
+      "events_ingested_brin": 786432
+    }
+  },
+  "queries_compressed": {
+    "module_time_filter_3d": {
+      "best_s": 0.0016,
+      "worst_s": 0.0077
+    },
+    "actor_top10_7d": {
+      "best_s": 0.0324,
+      "worst_s": 0.0326
+    },
+    "search_ilike_30d": {
+      "best_s": 0.2979,
+      "worst_s": 0.3588
+    }
+  },
+  "dedup_reinsert_compressed": {
+    "events": 33223,
+    "seconds": 2.2,
+    "events_per_s": 14944
+  }
+}
