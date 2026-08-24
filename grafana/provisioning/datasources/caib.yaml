@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: caib
+    uid: caib
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: $__env{CAIB_GRAFANA_DS_URL}
+    user: caib_ro
+    isDefault: true
+    editable: false
+    jsonData:
+      database: caib
+      sslmode: disable
+      timescaledb: true
+    secureJsonData:
+      password: $__env{CAIB_PG_RO_PASSWORD}

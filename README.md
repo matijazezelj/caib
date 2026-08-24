@@ -15,10 +15,14 @@ Requires Docker with the Compose plugin.
 
 ```sh
 make up        # creates .env from .env.example on first run, builds, starts
+make demo      # seed fixture data (30 days) + fire sample detections — no cloud creds
 # Grafana: http://localhost:3000 (admin / value of CAIB_GRAFANA_ADMIN_PASSWORD)
 make logs      # follow everything
 make down      # stop
 ```
+
+`make demo` gets a cold clone to populated dashboards (Overview, per-module,
+Alerts) and real firing alerts in under two minutes.
 
 Development also wants [`uv`](https://docs.astral.sh/uv/):
 
@@ -43,9 +47,9 @@ Enable a module by starting compose with its profile, e.g.
 
 | Module | Type | Status |
 |---|---|---|
-| `aws_cloudtrail` | push (S3 → SQS → Vector) | ingest ready; rules Phase 4, dashboard Phase 5 |
+| `aws_cloudtrail` | push (S3 → SQS → Vector) | ready: ingest + 7 rules + dashboard |
 | `gcp_audit` | push (Pub/Sub → Vector) | planned (Phase 6) |
-| `cloudflare_audit` | poller | ingest ready; rules Phase 4, dashboard Phase 5; live API verification pending |
+| `cloudflare_audit` | poller | ready: ingest + 5 rules + dashboard; live API verification pending a token |
 | `slack_audit` | poller | planned (Phase 6) |
 | `zoom` | poller | planned (Phase 6) |
 | `knowbe4` | poller | planned (Phase 6) |

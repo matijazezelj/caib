@@ -1,0 +1,111 @@
+{
+  "uid": "caib-overview",
+  "title": "CAIB Overview",
+  "tags": ["caib"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Events by module",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(bucket, '1h') AS time, module AS metric, sum(n)::float AS value FROM caib.events_5m WHERE $__timeFilter(bucket) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Failure rate by module",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(bucket, '1h') AS time, module AS metric, (sum(n) FILTER (WHERE outcome = 'failure'))::float / nullif(sum(n), 0) AS value FROM caib.events_5m WHERE $__timeFilter(bucket) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Top actors (24h)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT actor, module, sum(n) AS events, sum(failures) AS failures FROM caib.actors_1h WHERE bucket > now() - interval '24 hours' AND actor IS NOT NULL GROUP BY actor, module ORDER BY events DESC LIMIT 15"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Open alerts by severity",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT severity, count(*)::int AS alerts FROM detect.alerts WHERE status = 'open' GROUP BY severity ORDER BY array_position(ARRAY['critical','high','medium','low','info'], severity)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Landing backlog",
+      "description": "Rows waiting for the loader. Sustained growth = loader down or DB overloaded.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        { "refId": "A", "format": "table", "rawSql": "SELECT count(*)::int AS backlog FROM ingest.landing" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Dead letter (total)",
+      "description": "Envelopes the loader refused. Non-empty = a mapping bug somewhere.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 12 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "format": "table", "rawSql": "SELECT count(*)::int AS dead FROM ingest.dead_letter" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Timescale job errors (24h)",
+      "description": "Compression/retention/cagg-refresh jobs are infrastructure too.",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT job_id, proc_name, pid, start_time, finish_time, sqlerrcode, err_message FROM timescaledb_information.job_errors WHERE finish_time > now() - interval '24 hours' ORDER BY finish_time DESC LIMIT 50"
+        }
+      ]
+    }
+  ]
+}

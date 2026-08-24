@@ -124,6 +124,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${CAIB_GRAFANA_ADMIN_PASSWORD:-admin}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
+      CAIB_GRAFANA_DS_URL: ${CAIB_GRAFANA_DS_URL:-timescaledb:5432}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana

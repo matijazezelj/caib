@@ -25,5 +25,8 @@ test:
 bench:
 	uv run python scripts/bench.py
 
-demo ha-up ha-failover-test new-module:
+demo: .env
+	@set -a; . ./.env; set +a; uv run python scripts/demo_seed.py
+
+ha-up ha-failover-test new-module:
 	@echo "$@: not built yet — see Build phases in caib-build-spec.md"; exit 1

@@ -1,0 +1,93 @@
+{
+  "uid": "caib-alerts",
+  "title": "CAIB Alerts",
+  "tags": ["caib"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "status",
+        "type": "custom",
+        "label": "Status",
+        "multi": true,
+        "includeAll": false,
+        "query": "open,ack,closed",
+        "current": { "text": ["open"], "value": ["open"] },
+        "options": [
+          { "text": "open", "value": "open", "selected": true },
+          { "text": "ack", "value": "ack", "selected": false },
+          { "text": "closed", "value": "closed", "selected": false }
+        ]
+      },
+      {
+        "name": "severity",
+        "type": "custom",
+        "label": "Severity",
+        "multi": true,
+        "includeAll": true,
+        "query": "critical,high,medium,low,info",
+        "current": { "text": ["All"], "value": ["$__all"] },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Alerts",
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "severity" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": { "color": "dark-red", "index": 0 },
+                      "high": { "color": "red", "index": 1 },
+                      "medium": { "color": "orange", "index": 2 },
+                      "low": { "color": "yellow", "index": 3 },
+                      "info": { "color": "blue", "index": 4 }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT last_seen, severity, status, title, rule_id, dedup_key, event_count, first_seen, entity::text AS entity, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND ('$severity' = '$__all' OR severity = ANY(ARRAY[${severity:sqlstring}]::text[])) ORDER BY last_seen DESC LIMIT 200"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Alert activity (last_seen per hour)",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(last_seen, '1h') AS time, severity AS metric, count(*)::float AS value FROM detect.alerts WHERE $__timeFilter(last_seen) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}
