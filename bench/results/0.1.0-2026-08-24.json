@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T21:45:49.201694+00:00",
+  "generated_at": "2026-08-24T22:01:32.671207+00:00",
   "image": "timescale/timescaledb:2.29.2-pg18",
   "n_events": 1000000,
   "seed": 20260824,
@@ -10,75 +10,89 @@
   },
   "raw_json_bytes": 1034809866,
   "landing_copy": {
-    "seconds": 14.5,
-    "events_per_s": 68918
+    "seconds": 15.1,
+    "events_per_s": 66159
   },
   "loader": {
-    "seconds": 65.0,
-    "events_per_s": 15374
+    "seconds": 67.9,
+    "events_per_s": 14725
   },
   "hot": {
-    "heap_bytes": 1280335872,
+    "heap_bytes": 1280319488,
     "toast_bytes": 262144,
-    "index_bytes": 715743232,
-    "total_bytes": 1996341248,
+    "index_bytes": 714948608,
+    "total_bytes": 1995530240,
     "indexes": {
-      "events_pkey": 85311488,
-      "events_module_time": 50126848,
-      "events_actor_time": 70762496,
-      "events_ingested_brin": 786432
+      "events_actor_time": 70688768,
+      "events_event_time_idx": 31744000,
+      "events_ingested_brin": 786432,
+      "events_module_time": 50094080,
+      "events_pkey": 85327872,
+      "events_search_trgm": 474759168
     }
   },
   "search_text_bytes": 138591986,
   "queries_uncompressed": {
     "module_time_filter_3d": {
-      "best_s": 0.0041,
-      "worst_s": 0.0083
+      "best_s": 0.0052,
+      "worst_s": 0.0787
     },
     "actor_top10_7d": {
-      "best_s": 0.0301,
-      "worst_s": 0.0422
+      "best_s": 0.0323,
+      "worst_s": 0.0527
     },
     "search_ilike_30d": {
-      "best_s": 0.1411,
-      "worst_s": 0.3934
+      "best_s": 0.1413,
+      "worst_s": 0.593
     }
   },
-  "compress_all_seconds": 11.2,
+  "compress_all_seconds": 8.8,
   "compression": {
-    "before_bytes": 1996603392,
-    "after_bytes": 215736320,
-    "ratio": 9.25
+    "before_bytes": 1996742656,
+    "after_bytes": 215687168,
+    "ratio": 9.26
   },
   "compressed": {
     "heap_bytes": 4964352,
-    "toast_bytes": 210526208,
+    "toast_bytes": 210477056,
     "index_bytes": 3653632,
-    "total_bytes": 219144192,
+    "total_bytes": 219095040,
     "indexes": {
-      "events_pkey": 262144,
-      "events_module_time": 262144,
       "events_actor_time": 262144,
-      "events_ingested_brin": 786432
+      "events_event_time_idx": 262144,
+      "events_ingested_brin": 786432,
+      "events_module_time": 262144,
+      "events_pkey": 262144,
+      "events_search_trgm": 524288
     }
   },
   "queries_compressed": {
     "module_time_filter_3d": {
-      "best_s": 0.0015,
-      "worst_s": 0.0067
+      "best_s": 0.0017,
+      "worst_s": 0.0072
     },
     "actor_top10_7d": {
-      "best_s": 0.0126,
-      "worst_s": 0.0202
+      "best_s": 0.013,
+      "worst_s": 0.0188
     },
     "search_ilike_30d": {
-      "best_s": 0.218,
-      "worst_s": 0.23
+      "best_s": 0.2124,
+      "worst_s": 0.229
     }
   },
   "dedup_reinsert_compressed": {
     "events": 33223,
     "seconds": 1.7,
-    "events_per_s": 19311
+    "events_per_s": 19273
+  },
+  "provenance": {
+    "raw_json_bytes": "sum of len(json.dumps(envelope)) over all generated envelopes, pre-insert",
+    "landing_copy": "wall clock of COPY into ingest.landing from host psycopg",
+    "loader": "wall clock of loader.run_batch drain, landing->events incl. sha256 dedup + search_text build",
+    "hot/compressed": "hypertable_detailed_size('caib.events'); per-index hypertable_index_size()",
+    "search_text_bytes": "sum(pg_column_size(search_text)) over caib.events while uncompressed",
+    "compression": "hypertable_compression_stats('caib.events') before/after_compression_total_bytes, after compress_chunk() over ALL chunks",
+    "queries_*": "psycopg wall clock, best/worst of 3 consecutive runs each",
+    "dedup_reinsert_compressed": "re-COPY of one old day's envelopes + loader drain against fully compressed chunks; asserts zero new rows"
   }
 }

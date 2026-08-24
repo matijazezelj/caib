@@ -55,7 +55,79 @@
           "format": "table",
           "rawSql": "SELECT actor, sum(n) AS events, sum(failures) AS failures FROM caib.actors_1h WHERE module = 'gcp_audit' AND bucket > now() - interval '24 hours' AND actor IS NOT NULL GROUP BY actor ORDER BY events DESC LIMIT 10"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 3,
@@ -77,7 +149,79 @@
           "format": "table",
           "rawSql": "SELECT action, sum(n) AS events FROM caib.events_5m WHERE module = 'gcp_audit' AND bucket > now() - interval '24 hours' GROUP BY action ORDER BY events DESC LIMIT 10"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 4,
@@ -99,7 +243,79 @@
           "format": "table",
           "rawSql": "SELECT event_time, actor, action, target, host(src_ip) AS src_ip FROM caib.events WHERE module = 'gcp_audit' AND outcome = 'failure' AND $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 50"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 5,

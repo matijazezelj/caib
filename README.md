@@ -129,14 +129,20 @@ laptop (`0.1.0-2026-08-24`):
 | Measurement | Result |
 |---|---|
 | Raw vendor JSON | 1.03 GB (1M events) |
-| Loader throughput (landing → events, dedup + search_text) | **31,200 events/s** |
-| Hot size (heap + indexes, rowstore) | 1.52 GB |
-| After columnar compression | **0.22 GB (7.05x)** |
-| Dedup re-insert against **compressed** chunks | 14,900 events/s, zero new rows |
-| `module+time` filter (3d) hot → compressed | 21 ms → 2 ms |
-| `search_text ILIKE` over 30 days (unindexed scan) | 0.41 s → 0.30 s |
+| Loader throughput (landing → events, dedup + search_text) | **14,700 events/s** |
+| Hot size (heap + indexes, rowstore) | 2.0 GB — 0.47 GB of that is the trgm search index |
+| After columnar compression | **0.22 GB (9.3x)** |
+| Dedup re-insert against **compressed** chunks | 19,300 events/s, zero new rows |
+| `module+time` filter (3d) hot → compressed | 5 ms → 2 ms |
+| `search_text ILIKE` over 30 days | 0.14 s hot (trgm) / 0.21 s compressed scan |
 
-Re-run it yourself: `make bench` (takes ~2 minutes, needs Docker).
+The analyst-search index is the biggest measured tradeoff: before migration
+0005 the loader did 31,200 events/s into a 1.52 GB hot tier (that run is in
+the git history of the results file). The GIN/trgm index costs roughly half
+the ingest throughput and ~0.5 GB of hot storage, and buys sub-second
+substring search — the right trade for a SIEM, and now a measured one.
+Each number's source query is recorded under `provenance` in the results
+JSON. Re-run it yourself: `make bench` (takes ~3 minutes, needs Docker).
 
 ## Retention defaults
 
@@ -146,7 +152,9 @@ and alerts are kept much longer (cheap). Change post-install with
 
 ## Licensing
 
-TimescaleDB Community Edition ships under the TSL: free to self-host and run in
-production; the restriction is reselling it as a managed database service.
-CAIB deployments are self-hosted, which is squarely permitted. CI asserts the
-running build is the TSL one.
+CAIB is licensed under [Apache-2.0](LICENSE).
+
+TimescaleDB Community Edition (a dependency) ships under the TSL: free to
+self-host and run in production; the restriction is reselling it as a managed
+database service. CAIB deployments are self-hosted, which is squarely
+permitted. CI asserts the running build is the TSL one.

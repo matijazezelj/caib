@@ -36,9 +36,10 @@ idempotent (IF NOT EXISTS / if_not_exists => true), because a crash mid-file re-
 whole file. 0004 uses it; all other migrations keep the one-transaction-per-file default.
 
 Cagg retention: spec's migration comment says 400 days, open question 2 says 365. Went
-with the concrete number in the SQL comment (400d) — revisit when open question 2 is
-answered; it's a `remove_retention_policy`/`add_retention_policy` call either way, not a
-migration edit.
+with the concrete number in the SQL comment (400d). **Closed 2026-08-25: 400 days stands**
+— it's what the applied migration says, the difference is 35 days of pre-aggregated
+counts (kilobytes), and changing it later is one `remove_retention_policy`/
+`add_retention_policy` call, not a migration edit.
 
 ## 2026-08-24 — loader dead-letters contract violations beyond bad event_time
 

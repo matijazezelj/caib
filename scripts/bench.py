@@ -286,8 +286,14 @@ def sizes(conn: psycopg.Connection) -> dict:
         "SELECT table_bytes, index_bytes, toast_bytes, total_bytes"
         " FROM hypertable_detailed_size('caib.events')"
     ).fetchone()
+    idx_names = [
+        r[0] for r in conn.execute(
+            "SELECT indexname FROM pg_indexes"
+            " WHERE schemaname = 'caib' AND tablename = 'events' ORDER BY 1"
+        )
+    ]
     indexes = {}
-    for idx in ("events_pkey", "events_module_time", "events_actor_time", "events_ingested_brin"):
+    for idx in idx_names:
         indexes[idx] = conn.execute(
             "SELECT hypertable_index_size(%s)", (f"caib.{idx}",)
         ).fetchone()[0]
@@ -377,6 +383,18 @@ def main() -> None:
             print(f"dedup re-insert vs compressed: {redone} events in {redo_s:.1f}s")
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
+
+    # Where each number comes from — these get quoted to clients.
+    results["provenance"] = {
+        "raw_json_bytes": "sum of len(json.dumps(envelope)) over all generated envelopes, pre-insert",
+        "landing_copy": "wall clock of COPY into ingest.landing from host psycopg",
+        "loader": "wall clock of loader.run_batch drain, landing->events incl. sha256 dedup + search_text build",
+        "hot/compressed": "hypertable_detailed_size('caib.events'); per-index hypertable_index_size()",
+        "search_text_bytes": "sum(pg_column_size(search_text)) over caib.events while uncompressed",
+        "compression": "hypertable_compression_stats('caib.events') before/after_compression_total_bytes, after compress_chunk() over ALL chunks",
+        "queries_*": "psycopg wall clock, best/worst of 3 consecutive runs each",
+        "dedup_reinsert_compressed": "re-COPY of one old day's envelopes + loader drain against fully compressed chunks; asserts zero new rows",
+    }
 
     from importlib.metadata import version
 

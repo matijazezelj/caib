@@ -83,7 +83,79 @@
           "format": "table",
           "rawSql": "SELECT actor, module, sum(n) AS events, sum(failures) AS failures FROM caib.actors_1h WHERE bucket > now() - interval '24 hours' AND actor IS NOT NULL GROUP BY actor, module ORDER BY events DESC LIMIT 15"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 4,

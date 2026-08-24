@@ -14,39 +14,17 @@ binary must exist there — a sidecar alone cannot archive WAL, and a failing
 
 ## Dev / single node
 
-The stock `timescale/timescaledb` alpine image does not ship pgbackrest, but
-the package is in the alpine repo. Two-line image:
+Everything below **ships in the repo**: `backup/Dockerfile` (stock alpine image
++ `apk add pgbackrest`), `backup/pgbackrest.conf` (local posix repo by
+default), and `compose.backup.yml` (archiving enabled, repo volume mounted).
 
-```dockerfile
-# backup/Dockerfile
-FROM timescale/timescaledb:2.29.2-pg18
-RUN apk add --no-cache pgbackrest
+```sh
+docker compose -f docker-compose.yml -f compose.backup.yml up -d --build
+make restore-test    # the full drill, automated — see below
 ```
 
-Compose changes (build the image, mount the config, enable archiving):
-
-```yaml
-services:
-  timescaledb:
-    build: ./backup                    # instead of image:
-    command:
-      - postgres
-      - -c
-      - shared_preload_libraries=timescaledb
-      - -c
-      - default_toast_compression=lz4
-      - -c
-      - timezone=UTC
-      - -c
-      - archive_mode=on
-      - -c
-      - archive_command=pgbackrest --stanza=caib archive-push %p
-    volumes:
-      - pgdata:/var/lib/postgresql
-      - ./backup/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
-```
-
-`backup/pgbackrest.conf` (S3-compatible repo; MinIO works):
+For a real deployment, switch the shipped conf's repo1 to S3-compatible
+storage (MinIO works):
 
 ```ini
 [global]
@@ -96,6 +74,15 @@ archive_command: pgbackrest --stanza=caib archive-push %p
 
 (Only the current primary archives; the parameters travel with failover.)
 
+**Scheduling on HA:** never point cron at a fixed node — spilo1 is not
+reliably the leader. `scripts/ha_backup.sh` asks each node's Patroni REST API
+for the primary and execs pgbackrest there:
+
+```cron
+0 2 * * 0   /path/to/caib/scripts/ha_backup.sh full
+0 2 * * 1-6 /path/to/caib/scripts/ha_backup.sh incr
+```
+
 Optionally configure Patroni to build replicas from backup instead of
 basebackup (`postgresql.create_replica_methods: [pgbackrest, basebackup]` plus
 a `pgbackrest` method section — see Patroni docs).
@@ -118,17 +105,21 @@ Host-to-host access for that mode needs the pgBackRest TLS server (or SSH)
 between nodes — start without it (backups from the primary) and add it when
 primary load actually becomes a problem.
 
-## Restore drill (do this once before you need it)
+## Restore drill
+
+Automated: `make restore-test` takes a full backup of the dev node, restores
+it into a scratch volume, boots a scratch postgres on the restored data, and
+asserts the TSL license, a marker row, and matching event counts
+(`scripts/restore_test.sh`). Run it after changing anything backup-related.
+
+Point-in-time restores stay manual:
 
 ```sh
-pgbackrest --stanza=caib --set=<backup-label> --delta restore
-# or point-in-time:
 pgbackrest --stanza=caib --type=time "--target=2026-08-24 12:00:00+00" restore
 ```
 
-Restore into a scratch container, sanity-check (`SHOW timescaledb.license`,
-`SELECT count(*) FROM caib.events`), and time the whole thing — an untested
-backup is a hope, not a backup.
+An untested backup is a hope, not a backup — the make target exists so the
+test actually happens.
 
 ## What to back up beyond the DB
 
