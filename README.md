@@ -85,6 +85,11 @@ Enable a module by starting compose with its profile, e.g.
 | `knowbe4` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
 
 Adding a source? Read [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md).
+Converting public Sigma cloud rules: `uv run python -m caib_core.sigma
+--module aws_cloudtrail rule.yml` (existence shape; see the module for limits).
+Slack notifications: point `CAIB_NOTIFY_WEBHOOK_URL` at an incoming webhook —
+Block Kit formatting is automatic for `hooks.slack.com` URLs.
+Backups: [docs/BACKUPS.md](docs/BACKUPS.md).
 
 ## High availability
 

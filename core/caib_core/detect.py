@@ -77,15 +77,20 @@ class Cfg:
     min_severity: str = "info"
     tick_s: float = 15.0
     first_run_lookback_s: float = 3600.0
+    notify_format: str = "json"
 
     @classmethod
     def from_env(cls) -> "Cfg":
+        webhook_url = os.environ.get("CAIB_NOTIFY_WEBHOOK_URL", "")
         return cls(
             safety_lag_s=float(os.environ.get("CAIB_DETECT_SAFETY_LAG", "60")),
             max_alerts_per_tick=int(os.environ.get("CAIB_DETECT_MAX_ALERTS_PER_TICK", "500")),
-            webhook_url=os.environ.get("CAIB_NOTIFY_WEBHOOK_URL", ""),
+            webhook_url=webhook_url,
             min_severity=os.environ.get("CAIB_NOTIFY_MIN_SEVERITY", "info"),
             tick_s=float(os.environ.get("CAIB_DETECT_TICK_S", "15")),
+            notify_format=notify.resolve_format(
+                os.environ.get("CAIB_NOTIFY_FORMAT", ""), webhook_url
+            ),
         )
 
 
@@ -330,7 +335,7 @@ def main(argv: list[str] | None = None) -> None:
                 next_run[rule.id] = now_mono + rule.interval_s
 
             try:
-                _sent, failed = notify.drain(conn, cfg.webhook_url)
+                _sent, failed = notify.drain(conn, cfg.webhook_url, fmt=cfg.notify_format)
                 notify_backoff = 1.0 if not failed else min(notify_backoff * 2, 300)
                 if failed:
                     log.warning("notify: %d failed, backoff %.0fs", failed, notify_backoff)
