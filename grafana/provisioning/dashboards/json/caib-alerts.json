@@ -27,10 +27,19 @@
         "type": "custom",
         "label": "Severity",
         "multi": true,
-        "includeAll": true,
+        "includeAll": false,
         "query": "critical,high,medium,low,info",
-        "current": { "text": ["All"], "value": ["$__all"] },
-        "options": []
+        "current": {
+          "text": ["critical", "high", "medium", "low", "info"],
+          "value": ["critical", "high", "medium", "low", "info"]
+        },
+        "options": [
+          { "text": "critical", "value": "critical", "selected": true },
+          { "text": "high", "value": "high", "selected": true },
+          { "text": "medium", "value": "medium", "selected": true },
+          { "text": "low", "value": "low", "selected": true },
+          { "text": "info", "value": "info", "selected": true }
+        ]
       }
     ]
   },
@@ -71,7 +80,7 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT last_seen, severity, status, title, rule_id, dedup_key, event_count, first_seen, entity::text AS entity, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND ('$severity' = '$__all' OR severity = ANY(ARRAY[${severity:sqlstring}]::text[])) ORDER BY last_seen DESC LIMIT 200"
+          "rawSql": "SELECT last_seen, severity, status, title, rule_id, dedup_key, event_count, first_seen, entity::text AS entity, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND severity = ANY(ARRAY[${severity:sqlstring}]::text[]) ORDER BY last_seen DESC LIMIT 200"
         }
       ]
     },

@@ -24,6 +24,29 @@ make down      # stop
 `make demo` gets a cold clone to populated dashboards (Overview, per-module,
 Alerts) and real firing alerts in under two minutes.
 
+## What it looks like
+
+Everything below is `make demo` output — synthetic fixture data, zero cloud
+credentials, zero clicks.
+
+**Overview** — cross-module event rates, failure rates, open alerts, ingest
+health, and the raw event stream:
+
+![CAIB Overview dashboard](docs/img/overview.png)
+
+**Alerts** — the detection engine's output, filterable by status/severity;
+recurrences fold into one row with an event count:
+
+![CAIB Alerts dashboard](docs/img/alerts.png)
+
+**Per-module dashboards** (one per source; aws_cloudtrail shown) — module
+event rates, top actors/actions, failures, module-specific panels, raw stream:
+
+![CAIB aws_cloudtrail module dashboard](docs/img/module-aws-cloudtrail.png)
+
+Screenshots regenerate via the optional renderer overlay — see
+[`compose.render.yml`](compose.render.yml).
+
 Development also wants [`uv`](https://docs.astral.sh/uv/):
 
 ```sh

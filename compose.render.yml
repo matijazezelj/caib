@@ -1,0 +1,16 @@
+# Optional overlay: Grafana image renderer, used to (re)generate the README
+# screenshots. Not part of the normal stack.
+#
+#   docker compose -f docker-compose.yml -f compose.render.yml up -d renderer grafana
+#   curl -u admin:$CAIB_GRAFANA_ADMIN_PASSWORD \
+#     "http://localhost:3000/render/d/caib-overview/x?kiosk&theme=dark&width=1600&height=1400&tz=UTC" \
+#     -o docs/img/overview.png
+services:
+  renderer:
+    image: grafana/grafana-image-renderer:latest
+    restart: unless-stopped
+
+  grafana:
+    environment:
+      GF_RENDERING_SERVER_URL: http://renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
