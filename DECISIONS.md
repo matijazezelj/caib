@@ -126,6 +126,21 @@ flag is wired. Revisit if the alpine image ever ships pg_textsearch, or if a dep
 standardizes on the timescaledb-ha image for single-node too — the hypertable mechanics
 are proven to work.
 
+## 2026-08-24 — considered: standardize dev on timescaledb-ha (deferred)
+
+Phase 7 landed on `timescale/timescaledb-ha` for the cluster, and the BM25 spike proved
+that image ships pg_textsearch (works on hypertables) and pgBackRest. Standardizing the
+dev single node on it would buy dev/prod image parity, reopen the BM25 option, and
+simplify the backup docs (no image bake).
+
+Deferred for now: the alpine image is ~5x smaller, gets pulled by every CI run and every
+local test session, and nothing currently *requires* what the HA image adds — trgm covers
+the search need and the BM25 write-overhead question is still unmeasured. Revisit when
+(a) BM25 becomes a product requirement, or (b) a deployment already runs timescaledb-ha
+single-node and parity starts paying real debugging dividends. The switch itself is
+mechanical: image + PGDATA path (`/home/postgres/pgdata/data`) in compose, conftest,
+bench, and CI.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced
