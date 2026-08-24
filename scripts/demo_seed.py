@@ -127,7 +127,8 @@ def brute_force_burst(now: datetime.datetime) -> list[dict]:
         "src_ip": "198.51.100.66",
         "action": "ConsoleLogin",
         "severity": "info",
-        "attrs": {"user_type": "IAMUser", "mfa": "No"},
+        "attrs": {"user_type": "IAMUser", "mfa": "No",
+                  "event_source": "signin.amazonaws.com"},
     }
     envs = []
     for i in range(5):
@@ -137,6 +138,25 @@ def brute_force_burst(now: datetime.datetime) -> list[dict]:
     ts = now - datetime.timedelta(minutes=4)
     envs.append({**base, "event_time": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
                  "event_id": f"demo-bf-{nonce}-success", "outcome": "success"})
+    return envs
+
+
+def mfa_logins(rng: random.Random, now: datetime.datetime) -> list[dict]:
+    """A healthy population of MFA'd console logins so the MFA panel shows a
+    real split instead of only the bad case."""
+    envs = []
+    for i, ts in enumerate(demo_timestamps(rng, 40, now)):
+        envs.append({
+            "event_time": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "event_id": f"demo-mfa-{i}",
+            "actor": "arn:aws:iam::123456789012:user/carol",
+            "src_ip": "203.0.113.77",
+            "action": "ConsoleLogin",
+            "outcome": "success",
+            "severity": "info",
+            "attrs": {"user_type": "IAMUser", "mfa": "Yes",
+                      "event_source": "signin.amazonaws.com"},
+        })
     return envs
 
 
@@ -175,6 +195,8 @@ def main() -> None:
             batches.append((module, clone(env, ts, i)))
             i += 1
     for env in brute_force_burst(now):
+        batches.append(("aws_cloudtrail", env))
+    for env in mfa_logins(rng, now):
         batches.append(("aws_cloudtrail", env))
 
     try:
@@ -220,11 +242,27 @@ def main() -> None:
                 print(f"  rule {rule.id}: {stats['rows']} alert(s)")
         notify.drain(conn, cfg.webhook_url, fmt=cfg.notify_format)
 
-        n_alerts = conn.execute("SELECT count(*) FROM detect.alerts").fetchone()[0]
+        # The compose detect service may have legitimately fired dead-man
+        # alerts against the pre-seed empty DB. They're stale now that data
+        # flows; auto-close them (demo-only — in production a human closes
+        # dead-man alerts, per the rules README).
+        closed = conn.execute(
+            "UPDATE detect.alerts a SET status = 'closed'"
+            " WHERE a.rule_id LIKE '%.dead_man' AND a.status = 'open'"
+            "   AND EXISTS (SELECT 1 FROM caib.events e"
+            "               WHERE e.module = a.entity->>'module'"
+            "                 AND e.ingested_at > now() - interval '2 hours')"
+        ).rowcount
+        if closed:
+            print(f"closed {closed} stale pre-seed dead-man alert(s)")
+
+        n_alerts = conn.execute(
+            "SELECT count(*) FROM detect.alerts WHERE status = 'open'"
+        ).fetchone()[0]
         n_events = conn.execute("SELECT count(*) FROM caib.events").fetchone()[0]
 
     grafana_port = os.environ.get("CAIB_GRAFANA_PORT", "3000")
-    print(f"\ndemo ready: {n_events} events, {n_alerts} alerts")
+    print(f"\ndemo ready: {n_events} events, {n_alerts} open alerts")
     print(f"Grafana: http://localhost:{grafana_port}/dashboards (admin / your CAIB_GRAFANA_ADMIN_PASSWORD)")
 
 

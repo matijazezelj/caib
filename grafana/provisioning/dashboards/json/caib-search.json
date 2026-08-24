@@ -169,6 +169,20 @@
         "x": 0,
         "y": 18
       },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "caib"

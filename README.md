@@ -116,7 +116,27 @@ follow the primary automatically — they're catalog state, not node state.
   multi-host connection strings.
 - Give each node local NVMe for `PGDATA`; set `shared_buffers` etc. for the
   hardware (the overlay ships Postgres defaults).
-- Add backups before you need them: pgBackRest docs are planned in Phase 8.
+- Add backups before you need them: see [docs/BACKUPS.md](docs/BACKUPS.md).
+
+## Measured performance (`make bench`)
+
+Not asserted — measured. `make bench` replays 1M representative events
+(CloudTrail/GCP/Slack-shaped, spread over 30 days) through the real
+landing → loader path on a throwaway TimescaleDB and commits the results to
+[`bench/results/`](bench/results/). From the committed run on an M-series
+laptop (`0.1.0-2026-08-24`):
+
+| Measurement | Result |
+|---|---|
+| Raw vendor JSON | 1.03 GB (1M events) |
+| Loader throughput (landing → events, dedup + search_text) | **31,200 events/s** |
+| Hot size (heap + indexes, rowstore) | 1.52 GB |
+| After columnar compression | **0.22 GB (7.05x)** |
+| Dedup re-insert against **compressed** chunks | 14,900 events/s, zero new rows |
+| `module+time` filter (3d) hot → compressed | 21 ms → 2 ms |
+| `search_text ILIKE` over 30 days (unindexed scan) | 0.41 s → 0.30 s |
+
+Re-run it yourself: `make bench` (takes ~2 minutes, needs Docker).
 
 ## Retention defaults
 
