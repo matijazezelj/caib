@@ -187,10 +187,16 @@ def test_malformed_remap_fails_loudly_on_not_nulls(migrated_db, tmp_path):
 def test_s3_sqs_localstack_end_to_end(migrated_db, tmp_path):
     boto3 = pytest.importorskip("boto3")
 
+    # Vector talks to LocalStack over a shared docker network: the loopback
+    # port publish below is only for boto3 on the host. (host.docker.internal
+    # can't reach 127.0.0.1-bound host ports on Linux runners.)
+    net_name = f"caib-net-{uuid.uuid4().hex[:8]}"
+    subprocess.run(["docker", "network", "create", net_name], check=True, capture_output=True)
     ls_name = f"caib-ls-{uuid.uuid4().hex[:8]}"
     subprocess.run(
         [
             "docker", "run", "-d", "--rm", "--name", ls_name,
+            "--network", net_name,
             "-e", "SERVICES=s3,sqs",
             "-p", "127.0.0.1:0:4566",
             # Last community-edition series; localstack:latest (2026.x) demands
@@ -269,10 +275,11 @@ def test_s3_sqs_localstack_end_to_end(migrated_db, tmp_path):
         module_cfg = yaml.safe_load(MODULE_YAML.read_text())
         src = module_cfg["sources"]["aws_cloudtrail_s3"]
         src["region"] = "us-east-1"
-        src["endpoint"] = "http://host.docker.internal:" + port
+        src["endpoint"] = f"http://{ls_name}:4566"
         src["force_path_style"] = True
-        src["sqs"]["queue_url"] = queue_url.replace("127.0.0.1", "host.docker.internal").replace(
-            "localhost", "host.docker.internal"
+        src["sqs"]["queue_url"] = (
+            queue_url.replace(f"127.0.0.1:{port}", f"{ls_name}:4566")
+            .replace(f"localhost:{port}", f"{ls_name}:4566")
         )
         config = {
             **module_cfg,
@@ -290,6 +297,7 @@ def test_s3_sqs_localstack_end_to_end(migrated_db, tmp_path):
         subprocess.run(
             [
                 "docker", "run", "-d", "--rm", "--name", vec_name,
+                "--network", net_name,
                 "--add-host=host.docker.internal:host-gateway",
                 "-v", f"{tmp_path}:/cfg:ro",
                 "-e", "AWS_ACCESS_KEY_ID=test", "-e", "AWS_SECRET_ACCESS_KEY=test",
@@ -320,3 +328,4 @@ def test_s3_sqs_localstack_end_to_end(migrated_db, tmp_path):
     finally:
         subprocess.run(["docker", "rm", "-f", vec_name], capture_output=True, check=False)
         subprocess.run(["docker", "rm", "-f", ls_name], capture_output=True, check=False)
+        subprocess.run(["docker", "network", "rm", net_name], capture_output=True, check=False)
