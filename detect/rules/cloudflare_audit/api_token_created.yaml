@@ -1,0 +1,19 @@
+id: cloudflare_audit.api_token_created
+enabled: true
+module: cloudflare_audit
+title: "Cloudflare API token created"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'token', target)  AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'context', jsonb_agg(DISTINCT attrs->>'actor_context')) AS context,
+    max(event_time)                                       AS last_event_time
+  FROM caib.events
+  WHERE module = 'cloudflare_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'token_create'
+  GROUP BY actor, target

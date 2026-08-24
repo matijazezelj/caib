@@ -1,0 +1,34 @@
+# Threshold shape: watermark slice triggers, aggregation runs over event_time.
+id: aws_cloudtrail.login_failures_then_success
+enabled: true
+module: aws_cloudtrail
+title: "Console login brute force followed by success"
+severity: high
+interval: 300
+lookback: 30m
+sql: |
+  WITH trig AS (
+    SELECT DISTINCT src_ip
+    FROM caib.events
+    WHERE module = 'aws_cloudtrail'
+      AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+      AND action = 'ConsoleLogin'
+      AND src_ip IS NOT NULL
+  )
+  SELECT
+    host(e.src_ip)                               AS dedup_key,
+    jsonb_build_object('src_ip', host(e.src_ip)) AS entity,
+    jsonb_build_object(
+      'failures',  count(*) FILTER (WHERE outcome = 'failure')::int,
+      'successes', count(*) FILTER (WHERE outcome = 'success')::int,
+      'actors',    jsonb_agg(DISTINCT actor)
+    )                                            AS context,
+    max(e.event_time)                            AS last_event_time
+  FROM caib.events e
+  JOIN trig t ON t.src_ip = e.src_ip
+  WHERE e.module = 'aws_cloudtrail'
+    AND e.action = 'ConsoleLogin'
+    AND e.event_time > %(wm_to)s::timestamptz - %(lookback)s::interval
+  GROUP BY e.src_ip
+  HAVING count(*) FILTER (WHERE outcome = 'failure') >= 5
+     AND count(*) FILTER (WHERE outcome = 'success') >= 1

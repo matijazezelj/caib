@@ -60,6 +60,25 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  detect:
+    image: caib-core:dev
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    command: ["detect"]
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_DETECT_SAFETY_LAG: ${CAIB_DETECT_SAFETY_LAG:-60}
+      CAIB_DETECT_MAX_ALERTS_PER_TICK: ${CAIB_DETECT_MAX_ALERTS_PER_TICK:-500}
+      CAIB_NOTIFY_WEBHOOK_URL: ${CAIB_NOTIFY_WEBHOOK_URL:-}
+      CAIB_NOTIFY_MIN_SEVERITY: ${CAIB_NOTIFY_MIN_SEVERITY:-info}
+    volumes:
+      - ./detect/rules:/app/detect/rules:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   poller-cloudflare-audit:
     image: caib-poller:dev
     build:

@@ -1,0 +1,21 @@
+# Action type strings need live confirmation (fixtures are SYNTHETIC).
+id: cloudflare_audit.member_admin_added
+enabled: true
+module: cloudflare_audit
+title: "Cloudflare account member added or role changed"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('actor', actor, 'member', target)  AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action)) AS context,
+    max(event_time)                                        AS last_event_time
+  FROM caib.events
+  WHERE module = 'cloudflare_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('account_member_invite', 'account_member_add',
+                   'account_member_role_change')
+  GROUP BY actor, target

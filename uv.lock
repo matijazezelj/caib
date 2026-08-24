@@ -87,10 +87,14 @@ version = "0.1.0"
 source = { editable = "core" }
 dependencies = [
     { name = "psycopg", extra = ["binary"] },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "psycopg", extras = ["binary"], specifier = ">=3.2" }]
+requires-dist = [
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "pyyaml", specifier = ">=6" },
+]
 
 [[package]]
 name = "caib-pollers"

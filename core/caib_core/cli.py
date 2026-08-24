@@ -8,7 +8,9 @@ def main() -> None:
     sub.add_parser("migrate", help="apply db/migrations in order, then sync roles")
     loader_p = sub.add_parser("loader", help="move ingest.landing -> caib.events")
     loader_p.add_argument("--once", action="store_true")
-    sub.add_parser("detect", help="run detection rules (Phase 4)")
+    detect_p = sub.add_parser("detect", help="run detection rules")
+    detect_p.add_argument("--once", action="store_true")
+    detect_p.add_argument("--advance-watermarks", action="store_true")
     args = parser.parse_args()
 
     if args.cmd == "migrate":
@@ -19,6 +21,15 @@ def main() -> None:
         from caib_core import loader
 
         loader.main(["--once"] if args.once else [])
+    elif args.cmd == "detect":
+        from caib_core import detect
+
+        argv = []
+        if args.once:
+            argv.append("--once")
+        if args.advance_watermarks:
+            argv.append("--advance-watermarks")
+        detect.main(argv)
     else:
         print(f"caib-core {args.cmd}: not implemented yet", file=sys.stderr)
         raise SystemExit(2)

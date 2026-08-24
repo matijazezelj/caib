@@ -1,0 +1,21 @@
+# Sigma: 4f19fe5b-eab9-4d25-834f-a0c9d40ef1d1 (AWS SG open to the world)
+id: aws_cloudtrail.sg_open_ingress
+enabled: true
+module: aws_cloudtrail
+title: "Security group ingress opened to 0.0.0.0/0"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-')                         AS dedup_key,
+    jsonb_build_object('actor', actor)           AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'regions', jsonb_agg(DISTINCT attrs->>'aws_region')) AS context,
+    max(event_time)                              AS last_event_time
+  FROM caib.events
+  WHERE module = 'aws_cloudtrail'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'AuthorizeSecurityGroupIngress'
+    AND attrs->>'world_open' = 'true'
+  GROUP BY actor

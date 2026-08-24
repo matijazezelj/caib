@@ -1,0 +1,20 @@
+id: aws_cloudtrail.admin_policy_attached
+enabled: true
+module: aws_cloudtrail
+title: "AdministratorAccess policy attached to user"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-')                         AS dedup_key,
+    jsonb_build_object('actor', actor)           AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'policy_arns', jsonb_agg(DISTINCT attrs->>'policy_arn')) AS context,
+    max(event_time)                              AS last_event_time
+  FROM caib.events
+  WHERE module = 'aws_cloudtrail'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'AttachUserPolicy'
+    AND attrs->>'policy_arn' LIKE '%%AdministratorAccess%%'
+  GROUP BY actor

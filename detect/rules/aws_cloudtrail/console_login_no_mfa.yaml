@@ -1,0 +1,21 @@
+id: aws_cloudtrail.console_login_no_mfa
+enabled: true
+module: aws_cloudtrail
+title: "Console login without MFA"
+severity: medium
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(host(src_ip), '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'src_ip', host(src_ip)) AS entity,
+    jsonb_build_object('events', count(*)::int)  AS context,
+    max(event_time)                              AS last_event_time
+  FROM caib.events
+  WHERE module = 'aws_cloudtrail'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'ConsoleLogin'
+    AND outcome = 'success'
+    AND coalesce(attrs->>'mfa', 'No') = 'No'
+    AND coalesce(attrs->>'user_type', '') <> 'AssumedRole'
+  GROUP BY actor, src_ip

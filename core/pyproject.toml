@@ -5,6 +5,7 @@ description = "CAIB core: migrate / loader / detect entrypoints"
 requires-python = ">=3.12"
 dependencies = [
     "psycopg[binary]>=3.2",
+    "pyyaml>=6",
 ]
 
 [project.scripts]

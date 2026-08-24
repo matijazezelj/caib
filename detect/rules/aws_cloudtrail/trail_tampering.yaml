@@ -1,0 +1,20 @@
+# Sigma: 461f6dad-cd58-40d1-9427-a2e33524b33f (AWS CloudTrail Important Change)
+id: aws_cloudtrail.trail_tampering
+enabled: true
+module: aws_cloudtrail
+title: "CloudTrail logging tampered with"
+severity: critical
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || action        AS dedup_key,
+    jsonb_build_object('actor', actor, 'action', action) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'regions', jsonb_agg(DISTINCT attrs->>'aws_region')) AS context,
+    max(event_time)                              AS last_event_time
+  FROM caib.events
+  WHERE module = 'aws_cloudtrail'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('StopLogging', 'DeleteTrail', 'PutEventSelectors')
+  GROUP BY actor, action

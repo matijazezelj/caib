@@ -1,0 +1,18 @@
+# Cloudflare audit volume is lower than CloudTrail's; 6h window.
+id: cloudflare_audit.dead_man
+enabled: true
+module: cloudflare_audit
+title: "cloudflare_audit has gone silent (no events in 6h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'cloudflare_audit'                                  AS dedup_key,
+    jsonb_build_object('module', 'cloudflare_audit')    AS entity,
+    jsonb_build_object('window', '6 hours')             AS context,
+    now()                                               AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'cloudflare_audit'
+      AND ingested_at > now() - interval '6 hours'
+  )

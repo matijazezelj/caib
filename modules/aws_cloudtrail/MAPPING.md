@@ -23,6 +23,8 @@ Remap: `vector/modules/aws_cloudtrail.yaml` (`remap_aws_cloudtrail`).
 | `aws_region` | `awsRegion` |
 | `error_code` | `errorCode` (absent on success) |
 | `mfa` | `additionalEventData.MFAUsed` (console sign-in events only) |
+| `policy_arn` | `requestParameters.policyArn` (policy attach/detach events only) |
+| `world_open` | `true` when `requestParameters` contains `0.0.0.0/0` (else absent) |
 
 ## Severity map
 

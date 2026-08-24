@@ -1,0 +1,19 @@
+# Absence shape: fires when the module goes silent — expired credentials,
+# broken SQS wiring, crash-looping Vector. Stays open until a human closes it.
+id: aws_cloudtrail.dead_man
+enabled: true
+module: aws_cloudtrail
+title: "aws_cloudtrail has gone silent (no events in 2h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'aws_cloudtrail'                                    AS dedup_key,
+    jsonb_build_object('module', 'aws_cloudtrail')      AS entity,
+    jsonb_build_object('window', '2 hours')             AS context,
+    now()                                               AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'aws_cloudtrail'
+      AND ingested_at > now() - interval '2 hours'
+  )

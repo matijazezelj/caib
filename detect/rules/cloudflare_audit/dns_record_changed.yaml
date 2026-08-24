@@ -1,0 +1,23 @@
+# Spec asks for apex/wildcard-only; the record NAME is not exposed in v2 attrs,
+# so v1 of this rule alerts on any DNS mutation and includes the zone. Refine
+# to apex/wildcard once live records confirm where the name lives (see
+# modules/cloudflare_audit/API_NOTES.md).
+id: cloudflare_audit.dns_record_changed
+enabled: true
+module: cloudflare_audit
+title: "Cloudflare DNS record changed"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(attrs->>'zone_name', '-') || '|' || coalesce(actor, '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'zone', attrs->>'zone_name')   AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action))         AS context,
+    max(event_time)                                                   AS last_event_time
+  FROM caib.events
+  WHERE module = 'cloudflare_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('dns_record_create', 'dns_record_update', 'dns_record_delete')
+  GROUP BY attrs->>'zone_name', actor

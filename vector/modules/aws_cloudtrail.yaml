@@ -20,12 +20,16 @@ transforms:
       . = map_values(records) -> |r| {
         r = object!(r)
         user = object(r.userIdentity) ?? {}
+        req_json = encode_json(r.requestParameters)
+        world_open = if contains(req_json, "0.0.0.0/0") { true } else { null }
         attrs = compact({
           "user_type": user.type,
           "event_source": r.eventSource,
           "aws_region": r.awsRegion,
           "error_code": r.errorCode,
-          "mfa": r.additionalEventData.MFAUsed
+          "mfa": r.additionalEventData.MFAUsed,
+          "policy_arn": r.requestParameters.policyArn,
+          "world_open": world_open
         })
         outcome = if exists(r.errorCode) { "failure" } else { "success" }
         {

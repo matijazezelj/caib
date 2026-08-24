@@ -1,0 +1,22 @@
+# Action type strings need live confirmation (fixtures are SYNTHETIC);
+# resource_product narrows to security products either way.
+id: cloudflare_audit.firewall_rule_deleted
+enabled: true
+module: cloudflare_audit
+title: "Cloudflare WAF/firewall rule deleted"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('actor', actor, 'rule', target,
+                       'product', attrs->>'resource_product') AS entity,
+    jsonb_build_object('events', count(*)::int)            AS context,
+    max(event_time)                                        AS last_event_time
+  FROM caib.events
+  WHERE module = 'cloudflare_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action LIKE '%%delete%%'
+    AND attrs->>'resource_product' IN ('waf', 'firewall', 'rulesets')
+  GROUP BY actor, target, attrs->>'resource_product'
