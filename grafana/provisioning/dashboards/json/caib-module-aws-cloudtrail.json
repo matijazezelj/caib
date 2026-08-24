@@ -1,18 +1,32 @@
 {
   "uid": "caib-mod-aws-cloudtrail",
   "title": "CAIB Module: aws_cloudtrail",
-  "tags": ["caib", "aws_cloudtrail"],
+  "tags": [
+    "caib",
+    "aws_cloudtrail"
+  ],
   "timezone": "utc",
   "schemaVersion": 39,
   "refresh": "1m",
-  "time": { "from": "now-24h", "to": "now" },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Events per hour",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -25,8 +39,16 @@
       "id": 2,
       "type": "table",
       "title": "Top actors (24h)",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -39,8 +61,16 @@
       "id": 3,
       "type": "table",
       "title": "Top actions (24h)",
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -53,8 +83,16 @@
       "id": 4,
       "type": "table",
       "title": "Recent failures",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -67,8 +105,16 @@
       "id": 5,
       "type": "table",
       "title": "Events by AWS service (24h)",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -81,8 +127,16 @@
       "id": 6,
       "type": "table",
       "title": "Console sign-ins by MFA (7d)",
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -96,23 +150,121 @@
       "type": "table",
       "title": "Raw event stream",
       "description": "Newest aws_cloudtrail events in the selected range. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "fieldConfig": {
-        "defaults": { "custom": { "filterable": true } },
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "attrs" },
+            "matcher": {
+              "id": "byName",
+              "options": "attrs"
+            },
             "properties": [
-              { "id": "custom.inspect", "value": true },
-              { "id": "custom.width", "value": 220 }
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 220
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "raw" },
+            "matcher": {
+              "id": "byName",
+              "options": "raw"
+            },
             "properties": [
-              { "id": "custom.inspect", "value": true },
-              { "id": "custom.width", "value": 260 }
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
             ]
           }
         ]

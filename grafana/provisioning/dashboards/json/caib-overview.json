@@ -1,18 +1,31 @@
 {
   "uid": "caib-overview",
   "title": "CAIB Overview",
-  "tags": ["caib"],
+  "tags": [
+    "caib"
+  ],
   "timezone": "utc",
   "schemaVersion": 39,
   "refresh": "1m",
-  "time": { "from": "now-24h", "to": "now" },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Events by module",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -25,9 +38,23 @@
       "id": 2,
       "type": "timeseries",
       "title": "Failure rate by module",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
@@ -40,8 +67,16 @@
       "id": 3,
       "type": "table",
       "title": "Top actors (24h)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -54,8 +89,16 @@
       "id": 4,
       "type": "barchart",
       "title": "Open alerts by severity",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -69,10 +112,22 @@
       "type": "stat",
       "title": "Landing backlog",
       "description": "Rows waiting for the loader. Sustained growth = loader down or DB overloaded.",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
-        { "refId": "A", "format": "table", "rawSql": "SELECT count(*)::int AS backlog FROM ingest.landing" }
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*)::int AS backlog FROM ingest.landing"
+        }
       ]
     },
     {
@@ -80,16 +135,40 @@
       "type": "stat",
       "title": "Dead letter (total)",
       "description": "Envelopes the loader refused. Non-empty = a mapping bug somewhere.",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 12 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "fieldConfig": {
         "defaults": {
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "targets": [
-        { "refId": "A", "format": "table", "rawSql": "SELECT count(*)::int AS dead FROM ingest.dead_letter" }
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*)::int AS dead FROM ingest.dead_letter"
+        }
       ]
     },
     {
@@ -97,8 +176,16 @@
       "type": "table",
       "title": "Timescale job errors (24h)",
       "description": "Compression/retention/cagg-refresh jobs are infrastructure too.",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "targets": [
         {
           "refId": "A",
@@ -112,27 +199,55 @@
       "type": "table",
       "title": "Ingest lag by module",
       "description": "Time since each module's newest event. Vendor delivery lag dominates (CloudTrail alone batches ~5-15 min); sustained growth = a stuck source. The dead-man rules page on this too.",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "lag_seconds" },
+            "matcher": {
+              "id": "byName",
+              "options": "lag_seconds"
+            },
             "properties": [
-              { "id": "unit", "value": "s" },
+              {
+                "id": "unit",
+                "value": "s"
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "green", "value": null },
-                    { "color": "yellow", "value": 3600 },
-                    { "color": "red", "value": 21600 }
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 3600
+                    },
+                    {
+                      "color": "red",
+                      "value": 21600
+                    }
                   ]
                 }
               },
-              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
             ]
           }
         ]
@@ -150,23 +265,121 @@
       "type": "table",
       "title": "Raw event stream",
       "description": "Newest events in the selected range, all modules. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
       "fieldConfig": {
-        "defaults": { "custom": { "filterable": true } },
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "attrs" },
+            "matcher": {
+              "id": "byName",
+              "options": "attrs"
+            },
             "properties": [
-              { "id": "custom.inspect", "value": true },
-              { "id": "custom.width", "value": 220 }
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 220
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "raw" },
+            "matcher": {
+              "id": "byName",
+              "options": "raw"
+            },
             "properties": [
-              { "id": "custom.inspect", "value": true },
-              { "id": "custom.width", "value": 260 }
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actor"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "action"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "target"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "src_ip"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Pivot: search this value",
+                    "url": "/d/caib-search/x?var-q=${__value.text:percentencode}&${__url_time_range}"
+                  }
+                ]
+              }
             ]
           }
         ]
