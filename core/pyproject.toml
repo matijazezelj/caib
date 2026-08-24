@@ -1,0 +1,15 @@
+[project]
+name = "caib-core"
+version = "0.1.0"
+description = "CAIB core: migrate / loader / detect entrypoints"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.2",
+]
+
+[project.scripts]
+caib-core = "caib_core.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

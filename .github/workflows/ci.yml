@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      timescaledb:
+        # Must be the TSL build; the license test below is the gate.
+        image: timescale/timescaledb:2.29.2-pg18
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: caib
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      CAIB_TEST_PG_URL: postgresql://postgres:ci@localhost:5432/caib
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run pytest -q
