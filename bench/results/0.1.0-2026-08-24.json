@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T18:09:23.401337+00:00",
+  "generated_at": "2026-08-24T21:45:49.201694+00:00",
   "image": "timescale/timescaledb:2.29.2-pg18",
   "n_events": 1000000,
   "seed": 20260824,
@@ -10,51 +10,51 @@
   },
   "raw_json_bytes": 1034809866,
   "landing_copy": {
-    "seconds": 14.4,
-    "events_per_s": 69422
+    "seconds": 14.5,
+    "events_per_s": 68918
   },
   "loader": {
-    "seconds": 32.1,
-    "events_per_s": 31200
+    "seconds": 65.0,
+    "events_per_s": 15374
   },
   "hot": {
-    "heap_bytes": 1280229376,
+    "heap_bytes": 1280335872,
     "toast_bytes": 262144,
-    "index_bytes": 240435200,
-    "total_bytes": 1520926720,
+    "index_bytes": 715743232,
+    "total_bytes": 1996341248,
     "indexes": {
-      "events_pkey": 86106112,
-      "events_module_time": 50626560,
-      "events_actor_time": 70811648,
+      "events_pkey": 85311488,
+      "events_module_time": 50126848,
+      "events_actor_time": 70762496,
       "events_ingested_brin": 786432
     }
   },
   "search_text_bytes": 138591986,
   "queries_uncompressed": {
     "module_time_filter_3d": {
-      "best_s": 0.0206,
-      "worst_s": 0.512
+      "best_s": 0.0041,
+      "worst_s": 0.0083
     },
     "actor_top10_7d": {
-      "best_s": 0.1114,
-      "worst_s": 0.5263
+      "best_s": 0.0301,
+      "worst_s": 0.0422
     },
     "search_ilike_30d": {
-      "best_s": 0.4072,
-      "worst_s": 0.8888
+      "best_s": 0.1411,
+      "worst_s": 0.3934
     }
   },
-  "compress_all_seconds": 15.7,
+  "compress_all_seconds": 11.2,
   "compression": {
-    "before_bytes": 1520836608,
-    "after_bytes": 215695360,
-    "ratio": 7.05
+    "before_bytes": 1996603392,
+    "after_bytes": 215736320,
+    "ratio": 9.25
   },
   "compressed": {
-    "heap_bytes": 4980736,
-    "toast_bytes": 210468864,
-    "index_bytes": 3129344,
-    "total_bytes": 218578944,
+    "heap_bytes": 4964352,
+    "toast_bytes": 210526208,
+    "index_bytes": 3653632,
+    "total_bytes": 219144192,
     "indexes": {
       "events_pkey": 262144,
       "events_module_time": 262144,
@@ -64,21 +64,21 @@
   },
   "queries_compressed": {
     "module_time_filter_3d": {
-      "best_s": 0.0016,
-      "worst_s": 0.0077
+      "best_s": 0.0015,
+      "worst_s": 0.0067
     },
     "actor_top10_7d": {
-      "best_s": 0.0324,
-      "worst_s": 0.0326
+      "best_s": 0.0126,
+      "worst_s": 0.0202
     },
     "search_ilike_30d": {
-      "best_s": 0.2979,
-      "worst_s": 0.3588
+      "best_s": 0.218,
+      "worst_s": 0.23
     }
   },
   "dedup_reinsert_compressed": {
     "events": 33223,
-    "seconds": 2.2,
-    "events_per_s": 14944
+    "seconds": 1.7,
+    "events_per_s": 19311
   }
 }

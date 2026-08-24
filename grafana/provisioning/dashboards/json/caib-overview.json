@@ -173,12 +173,12 @@
     },
     {
       "id": 7,
-      "type": "table",
+      "type": "stat",
       "title": "Timescale job errors (24h)",
-      "description": "Compression/retention/cagg-refresh jobs are infrastructure too.",
+      "description": "Compression/retention/cagg-refresh jobs are infrastructure too. 0 = healthy; on errors, query timescaledb_information.job_errors for the messages.",
       "gridPos": {
         "h": 6,
-        "w": 12,
+        "w": 4,
         "x": 0,
         "y": 16
       },
@@ -186,11 +186,29 @@
         "type": "grafana-postgresql-datasource",
         "uid": "caib"
       },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT job_id, proc_name, pid, start_time, finish_time, sqlerrcode, err_message FROM timescaledb_information.job_errors WHERE finish_time > now() - interval '24 hours' ORDER BY finish_time DESC LIMIT 50"
+          "rawSql": "SELECT count(*)::int AS job_errors FROM timescaledb_information.job_errors WHERE finish_time > now() - interval '24 hours'"
         }
       ]
     },
@@ -201,8 +219,8 @@
       "description": "Time since each module's newest event. Vendor delivery lag dominates (CloudTrail alone batches ~5-15 min); sustained growth = a stuck source. The dead-man rules page on this too.",
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
+        "w": 20,
+        "x": 4,
         "y": 16
       },
       "datasource": {
