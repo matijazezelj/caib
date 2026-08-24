@@ -45,13 +45,66 @@
   },
   "panels": [
     {
+      "id": 3,
+      "type": "stat",
+      "title": "",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Critical/high open" },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 1 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Open" },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "orange", "value": 1 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) FILTER (WHERE status = 'open')::int AS \"Open\", count(*) FILTER (WHERE status = 'open' AND severity IN ('critical','high'))::int AS \"Critical/high open\", count(*) FILTER (WHERE first_seen > now() - interval '24 hours')::int AS \"New (24h)\", count(*) FILTER (WHERE last_seen > now() - interval '24 hours' AND first_seen <= now() - interval '24 hours')::int AS \"Recurring (24h)\" FROM detect.alerts"
+        }
+      ]
+    },
+    {
       "id": 1,
       "type": "table",
       "title": "Alerts",
-      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 0 },
+      "description": "Click entity/context cells to inspect the full JSON. rule_id, dedup key and first_seen live in the Details row below.",
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 4 },
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": { "custom": { "filterable": true } },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "severity" },
@@ -71,7 +124,31 @@
                   }
                 ]
               },
-              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "custom.width", "value": 100 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "last_seen" },
+            "properties": [{ "id": "custom.width", "value": 180 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "events" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "entity" },
+            "properties": [{ "id": "custom.inspect", "value": true }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "context" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
             ]
           }
         ]
@@ -80,21 +157,43 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT last_seen, severity, status, title, rule_id, dedup_key, event_count, first_seen, entity::text AS entity, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND severity = ANY(ARRAY[${severity:sqlstring}]::text[]) ORDER BY last_seen DESC LIMIT 200"
+          "rawSql": "SELECT last_seen, severity, title, entity::text AS entity, event_count AS events, status, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND severity = ANY(ARRAY[${severity:sqlstring}]::text[]) ORDER BY last_seen DESC LIMIT 200"
         }
       ]
     },
     {
-      "id": 2,
-      "type": "timeseries",
-      "title": "Alert activity (last_seen per hour)",
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 16 },
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
-      "targets": [
+      "id": 4,
+      "type": "row",
+      "title": "Details (all fields)",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "panels": [
         {
-          "refId": "A",
-          "format": "time_series",
-          "rawSql": "SELECT $__timeGroup(last_seen, '1h') AS time, severity AS metric, count(*)::float AS value FROM detect.alerts WHERE $__timeFilter(last_seen) GROUP BY 1, 2 ORDER BY 1"
+          "id": 2,
+          "type": "table",
+          "title": "Alerts — full detail",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 19 },
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+          "fieldConfig": {
+            "defaults": { "custom": { "filterable": true } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "entity" },
+                "properties": [{ "id": "custom.inspect", "value": true }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "context" },
+                "properties": [{ "id": "custom.inspect", "value": true }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "rawSql": "SELECT last_seen, first_seen, severity, status, title, rule_id, dedup_key, event_count, entity::text AS entity, context::text AS context FROM detect.alerts WHERE status = ANY(ARRAY[${status:sqlstring}]::text[]) AND severity = ANY(ARRAY[${severity:sqlstring}]::text[]) ORDER BY last_seen DESC LIMIT 200"
+            }
+          ]
         }
       ]
     }
