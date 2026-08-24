@@ -90,6 +90,40 @@
           "rawSql": "SELECT coalesce(attrs->>'mfa', 'unknown') AS mfa, count(*) AS logins FROM caib.events WHERE module = 'aws_cloudtrail' AND action = 'ConsoleLogin' AND event_time > now() - interval '7 days' GROUP BY 1 ORDER BY logins DESC"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Raw event stream",
+      "description": "Newest aws_cloudtrail events in the selected range. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attrs" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 220 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "raw" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, actor, action, target, outcome, severity, host(src_ip) AS src_ip, attrs::text AS attrs, raw::text AS raw FROM caib.events WHERE module = 'aws_cloudtrail' AND $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 100"
+        }
+      ]
     }
   ]
 }

@@ -90,6 +90,40 @@
           "rawSql": "SELECT coalesce(attrs->>'actor_context', 'unknown') AS context, count(*) AS events FROM caib.events WHERE module = 'cloudflare_audit' AND event_time > now() - interval '24 hours' GROUP BY 1 ORDER BY events DESC"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Raw event stream",
+      "description": "Newest cloudflare_audit events in the selected range. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attrs" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 220 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "raw" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, actor, action, target, outcome, severity, host(src_ip) AS src_ip, attrs::text AS attrs, raw::text AS raw FROM caib.events WHERE module = 'cloudflare_audit' AND $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 100"
+        }
+      ]
     }
   ]
 }

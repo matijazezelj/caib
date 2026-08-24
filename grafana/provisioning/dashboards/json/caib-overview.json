@@ -106,6 +106,40 @@
           "rawSql": "SELECT job_id, proc_name, pid, start_time, finish_time, sqlerrcode, err_message FROM timescaledb_information.job_errors WHERE finish_time > now() - interval '24 hours' ORDER BY finish_time DESC LIMIT 50"
         }
       ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Raw event stream",
+      "description": "Newest events in the selected range, all modules. Click a cell in attrs/raw to inspect the full JSON; column headers filter.",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attrs" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 220 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "raw" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, module, actor, action, target, outcome, severity, host(src_ip) AS src_ip, attrs::text AS attrs, raw::text AS raw FROM caib.events WHERE $__timeFilter(event_time) ORDER BY event_time DESC LIMIT 100"
+        }
+      ]
     }
   ]
 }
