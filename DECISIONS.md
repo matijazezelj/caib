@@ -83,6 +83,15 @@ have: Enterprise Grid, Zoom S2S app, KnowBe4 key).
 Related detail: the spec's "3–5 seed rules per module" guideline conflicts with its own
 zoom/knowbe4 lists (2 each); the recipes follow the explicit lists.
 
+## 2026-08-24 — Phase 8 partial: trgm search shipped ahead of Phase 7 (user-directed)
+
+Migration 0005 adds `pg_trgm` + `events_search_trgm` (GIN, gin_trgm_ops on search_text)
+and the provisioned Search dashboard ($q textbox → ILIKE, raw-JSON drilldown). Verified:
+the index serves ILIKE plans on uncompressed chunks, and 0005 applies cleanly on a DB
+that already has compressed chunks (tests/test_search.py). Remaining Phase 8 items (BM25
+spike, Sigma→SQL, Slack Block Kit, per-module ingest-lag panel, pgBackRest docs) and all
+of Phase 7 (HA) are still open. Phase-ordering deviation is deliberate.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

@@ -1,0 +1,71 @@
+{
+  "uid": "caib-search",
+  "title": "CAIB Search",
+  "tags": ["caib"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "q",
+        "type": "textbox",
+        "label": "Search",
+        "query": "",
+        "current": { "text": "", "value": "" },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Results",
+      "description": "Substring match over search_text (actor, action, target, src_ip, outcome, attrs values — never raw). trgm-indexed on the hot uncompressed window (~last 7 days); wider ranges scan compressed history, so keep the time range tight for cold searches. Click attrs/raw cells to inspect the full JSON.",
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attrs" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 220 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "raw" },
+            "properties": [
+              { "id": "custom.inspect", "value": true },
+              { "id": "custom.width", "value": 260 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_time, module, actor, action, target, outcome, severity, host(src_ip) AS src_ip, attrs::text AS attrs, raw::text AS raw FROM caib.events WHERE $__timeFilter(event_time) AND search_text ILIKE '%' || ${q:sqlstring} || '%' ORDER BY event_time DESC LIMIT 500"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Matches in range",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 18 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "caib" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*)::int AS matches FROM caib.events WHERE $__timeFilter(event_time) AND search_text ILIKE '%' || ${q:sqlstring} || '%'"
+        }
+      ]
+    }
+  ]
+}

@@ -44,6 +44,12 @@ event rates, top actors/actions, failures, module-specific panels, raw stream:
 
 ![CAIB aws_cloudtrail module dashboard](docs/img/module-aws-cloudtrail.png)
 
+**Search** — the "find `foo-prod` in everything" workflow: substring match
+over every event's curated fields (actor, action, target, src_ip, attrs),
+trgm-indexed on the hot window:
+
+![CAIB Search dashboard](docs/img/search.png)
+
 Screenshots regenerate via the optional renderer overlay — see
 [`compose.render.yml`](compose.render.yml).
 
