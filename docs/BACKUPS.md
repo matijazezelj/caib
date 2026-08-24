@@ -2,10 +2,10 @@
 
 CAIB ships no backup automation — retention policies drop data on schedule and
 replicas are not backups (they replicate your mistakes at wire speed).
-Compression helps here: pgBackRest backs up the compressed chunks as-is, and
-the committed benchmark measured **7.05x** columnar compression on 1M events
-(`bench/results/`), so a 90-day archive backs up far smaller than the raw log
-volume.
+Compression helps here: pgBackRest backs up the compressed chunks as-is, so a
+90-day archive backs up far smaller than the raw log volume — see
+`bench/results/` for the current measured ratios (numbers live there and in
+the README, deliberately not duplicated here).
 
 **The one architectural fact this document is built around:**
 `archive_command` executes inside the *database* container. The pgbackrest

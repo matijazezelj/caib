@@ -142,6 +142,22 @@ single-node and parity starts paying real debugging dividends. The switch itself
 mechanical: image + PGDATA path (`/home/postgres/pgdata/data`) in compose, conftest,
 bench, and CI.
 
+## 2026-08-25 — Phase 8 status: complete; project status: engineering done
+
+Earlier entries list Phase 8 items as remaining — superseded. Shipped since:
+trgm search index + Search dashboard (0005); BM25 spike concluded (off, findings above);
+Slack Block Kit notifications (auto-detected for hooks.slack.com); Sigma→SQL converter
+(`caib_core.sigma`, existence shape); per-module ingest-lag panel; pgBackRest docs plus
+a shipped backup overlay, leader-aware HA backup script, and an automated
+`make restore-test` drill. CAIB is licensed Apache-2.0 (spec open question 5 closed).
+Bench re-measured with the search index: 14.7k events/s ingest, 2.0 GB hot (0.47 GB trgm
+index), 0.22 GB cold — 9.3x vs hot footprint, ~6x pure data compression (indexes don't
+exist on compressed chunks).
+
+Remaining work needs vendor accounts, not a keyboard: live API verification for the four
+fixture-verified modules, slack/zoom/knowbe4 builds from the HOWTO recipes, and the
+optional Phase 9 archive tier. Next milestone is real-data dogfooding.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

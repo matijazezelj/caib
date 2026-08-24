@@ -131,7 +131,7 @@ laptop (`0.1.0-2026-08-24`):
 | Raw vendor JSON | 1.03 GB (1M events) |
 | Loader throughput (landing → events, dedup + search_text) | **14,700 events/s** |
 | Hot size (heap + indexes, rowstore) | 2.0 GB — 0.47 GB of that is the trgm search index |
-| After columnar compression | **0.22 GB (9.3x)** |
+| After columnar compression | **0.22 GB** — 9.3x vs the full hot footprint, ~6x pure data compression (heap 1.28 GB → 0.22 GB); the difference is the ~0.5 GB of b-tree/GIN indexes, which don't exist on compressed chunks |
 | Dedup re-insert against **compressed** chunks | 19,300 events/s, zero new rows |
 | `module+time` filter (3d) hot → compressed | 5 ms → 2 ms |
 | `search_text ILIKE` over 30 days | 0.14 s hot (trgm) / 0.21 s compressed scan |
@@ -140,9 +140,23 @@ The analyst-search index is the biggest measured tradeoff: before migration
 0005 the loader did 31,200 events/s into a 1.52 GB hot tier (that run is in
 the git history of the results file). The GIN/trgm index costs roughly half
 the ingest throughput and ~0.5 GB of hot storage, and buys sub-second
-substring search — the right trade for a SIEM, and now a measured one.
-Each number's source query is recorded under `provenance` in the results
-JSON. Re-run it yourself: `make bench` (takes ~3 minutes, needs Docker).
+substring search — the right trade for a SIEM, and now a measured one. For
+perspective, 14,700 events/s is ~1.3 **billion** events/day of ingest
+headroom; cloud/SaaS audit volumes top out orders of magnitude below that.
+
+Numbers are from a single run on a shared laptop — expect ±20–30% run-to-run
+variance. Each number's source query is recorded under `provenance` in the
+results JSON. Re-run it yourself: `make bench` (takes ~3 minutes, needs
+Docker).
+
+## Release confidence checklist
+
+```sh
+make test               # 70 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
+make bench              # measured ingest/compression/query numbers -> bench/results/
+make ha-failover-test   # kills the primary under write load; asserts zero loss
+make restore-test       # backup -> scratch restore -> license/marker/count assertions
+```
 
 ## Retention defaults
 
