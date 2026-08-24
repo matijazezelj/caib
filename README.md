@@ -43,7 +43,7 @@ Enable a module by starting compose with its profile, e.g.
 
 | Module | Type | Status |
 |---|---|---|
-| `aws_cloudtrail` | push (S3 → SQS → Vector) | planned (Phase 3) |
+| `aws_cloudtrail` | push (S3 → SQS → Vector) | ingest ready; rules Phase 4, dashboard Phase 5 |
 | `gcp_audit` | push (Pub/Sub → Vector) | planned (Phase 6) |
 | `cloudflare_audit` | poller | ingest ready; rules Phase 4, dashboard Phase 5; live API verification pending |
 | `slack_audit` | poller | planned (Phase 6) |

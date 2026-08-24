@@ -1,0 +1,87 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.10",
+      "userIdentity": {
+        "type": "Root",
+        "principalId": "123456789012",
+        "arn": "arn:aws:iam::123456789012:root",
+        "accountId": "123456789012"
+      },
+      "eventTime": "2026-08-23T08:12:44Z",
+      "eventSource": "signin.amazonaws.com",
+      "eventName": "ConsoleLogin",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+      "requestParameters": null,
+      "responseElements": { "ConsoleLogin": "Success" },
+      "additionalEventData": {
+        "LoginTo": "https://console.aws.amazon.com/console/home",
+        "MobileVersion": "No",
+        "MFAUsed": "No"
+      },
+      "eventID": "5fa2b1c8-9d34-4e6a-8b1f-0c2d3e4f5a6b",
+      "readOnly": false,
+      "eventType": "AwsConsoleSignIn",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012"
+    },
+    {
+      "eventVersion": "1.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLE123456789",
+        "arn": "arn:aws:iam::123456789012:user/bob",
+        "accountId": "123456789012",
+        "userName": "bob"
+      },
+      "eventTime": "2026-08-23T08:19:02Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRole",
+      "awsRegion": "eu-central-1",
+      "sourceIPAddress": "198.51.100.23",
+      "userAgent": "aws-cli/2.17.0 Python/3.11.9",
+      "errorCode": "AccessDenied",
+      "errorMessage": "User: arn:aws:iam::123456789012:user/bob is not authorized to perform: sts:AssumeRole",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::123456789012:role/admin",
+        "roleSessionName": "bob-session"
+      },
+      "responseElements": null,
+      "eventID": "7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012"
+    },
+    {
+      "eventVersion": "1.10",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLE987654321",
+        "arn": "arn:aws:iam::123456789012:user/carol",
+        "accountId": "123456789012",
+        "userName": "carol",
+        "sessionContext": {
+          "attributes": { "creationDate": "2026-08-23T07:55:00Z", "mfaAuthenticated": "true" }
+        }
+      },
+      "eventTime": "2026-08-23T09:03:17Z",
+      "eventSource": "cloudtrail.amazonaws.com",
+      "eventName": "StopLogging",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.77",
+      "userAgent": "console.amazonaws.com",
+      "requestParameters": {
+        "name": "arn:aws:cloudtrail:us-east-1:123456789012:trail/org-trail"
+      },
+      "responseElements": null,
+      "eventID": "9a0b1c2d-3e4f-5a6b-7c8d-9e0f1a2b3c4d",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012"
+    }
+  ]
+}

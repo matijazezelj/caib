@@ -51,6 +51,25 @@ therefore validates the closed enums and `attrs` shape and routes violations to
 `attrs not an object`. Semantics otherwise identical to the spec CTE; the final SELECT
 returns (moved, inserted, dead) counts for the per-cycle log line.
 
+## 2026-08-24 — one Vector container per push module, not one shared Vector
+
+The spec's architecture diagram shows a single Vector; the compose requirement
+("vector module files behind profiles named exactly after modules") has no clean
+single-container mechanism — compose can't conditionally add `--config` args or mounts
+per active profile. Each push module therefore gets its own Vector service
+(`vector-aws-cloudtrail`, later `vector-gcp-audit`) sharing `vector/vector.yaml` plus its
+module file, each with its own disk-buffer volume. Same locked decision ("push sources go
+through Vector"), better isolation, profile-pure.
+
+## 2026-08-24 — Phase 3 empirical findings (Vector 0.57.0)
+
+- S3-object framing and remap array fan-out verified: 1 gzipped CloudTrail object with 3
+  Records → exactly 3 landing rows (LocalStack S3+SQS end-to-end test).
+- VRL: `if` expressions are not valid directly as object-literal values; assign to a
+  variable first.
+- `localstack/localstack:latest` (2026.x) now requires a license token and exits without
+  one; tests pin `localstack/localstack:4.14`, the last community series.
+
 ## 2026-08-24 — caib_ro also gets SELECT on `ingest.*`
 
 Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the specced

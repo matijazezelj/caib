@@ -1,0 +1,17 @@
+api:
+  enabled: true
+  address: 0.0.0.0:8686
+
+sinks:
+  pg:
+    type: postgres
+    inputs: ["remap_*"]
+    endpoint: "${CAIB_PG_URL}"        # dev: timescaledb:5432, ha: haproxy:5000
+    table: "ingest.landing"
+    batch:
+      max_events: 500
+      timeout_secs: 5
+    buffer:
+      type: disk
+      max_size: 1073741824
+      when_full: block

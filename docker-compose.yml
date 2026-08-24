@@ -77,6 +77,29 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  vector-aws-cloudtrail:
+    image: timberio/vector:0.57.0-debian
+    profiles: ["aws_cloudtrail"]
+    command:
+      - --config
+      - /etc/vector/vector.yaml
+      - --config
+      - /etc/vector/modules/aws_cloudtrail.yaml
+    environment:
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_CLOUDTRAIL_SQS_URL: ${CAIB_CLOUDTRAIL_SQS_URL:-}
+      CAIB_AWS_REGION: ${CAIB_AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - ./vector/modules/aws_cloudtrail.yaml:/etc/vector/modules/aws_cloudtrail.yaml:ro
+      - vector_cloudtrail_data:/var/lib/vector
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.4.9
     environment:
@@ -100,3 +123,4 @@ services:
 volumes:
   pgdata:
   grafana_data:
+  vector_cloudtrail_data:

@@ -1,0 +1,47 @@
+# CloudTrail -> S3 -> SQS -> here. One S3 object holds {"Records":[...]} as a
+# single line; compression auto handles the .json.gz. The remap fans the
+# Records array out to one landing row per record (array at remap root =
+# one event per element).
+sources:
+  aws_cloudtrail_s3:
+    type: aws_s3
+    region: "${CAIB_AWS_REGION:-us-east-1}"
+    compression: auto
+    sqs:
+      queue_url: "${CAIB_CLOUDTRAIL_SQS_URL}"
+
+transforms:
+  remap_aws_cloudtrail:
+    type: remap
+    inputs: ["aws_cloudtrail_s3"]
+    source: |
+      parsed = parse_json!(string!(.message))
+      records = array!(parsed.Records)
+      . = map_values(records) -> |r| {
+        r = object!(r)
+        user = object(r.userIdentity) ?? {}
+        attrs = compact({
+          "user_type": user.type,
+          "event_source": r.eventSource,
+          "aws_region": r.awsRegion,
+          "error_code": r.errorCode,
+          "mfa": r.additionalEventData.MFAUsed
+        })
+        outcome = if exists(r.errorCode) { "failure" } else { "success" }
+        {
+          "received_at": now(),
+          "module": "aws_cloudtrail",
+          "payload": {
+            "event_time": r.eventTime,
+            "event_id": r.eventID,
+            "actor": user.arn || user.type,
+            "src_ip": r.sourceIPAddress,
+            "action": r.eventName,
+            "target": null,
+            "outcome": outcome,
+            "severity": "info",
+            "attrs": attrs,
+            "raw": r
+          }
+        }
+      }
