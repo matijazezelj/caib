@@ -16,11 +16,12 @@ CI green, Apache-2.0.
 Read in this order: `README.md` (what exists + measured numbers) →
 `DECISIONS.md` (every deviation from spec, append-only — **add entries, never
 edit old ones**) → `docs/NEW_MODULE_HOWTO.md` (how modules work + recipes for
-the unbuilt ones) → module `API_NOTES.md` files (verify-live checklists).
+the unbuilt ones) → `docs/DEPLOY.md` (what changes on a real host) → module
+`API_NOTES.md` files (verify-live checklists).
 
 ## The todo list (task trackers don't transfer between accounts)
 
-Ranked; 1–4 are credential-gated, 5 is pure keyboard work:
+Ranked; 1–4 are credential-gated, 5–7 are pure keyboard work:
 
 1. **Live-verify cloudflare_audit** — needs a CF API token in `.env`; run
    `caib-poller --module cloudflare_audit --once`, work the checklist in
@@ -41,7 +42,21 @@ Ranked; 1–4 are credential-gated, 5 is pure keyboard work:
    existing Wazuh MCP server's surface), module_health (Overview ops row as
    JSON), list_rules. Read-only v1 — no ack/close writes until dogfooding
    shows the lifecycle. Compose profile `agent-api`.
-6. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
+6. **Reliability/ops backlog** from the 2026-08-25 code review (P0 items are
+   done — see the DECISIONS entry). Left: unbounded `detect.outbox` /
+   `detect.alerts` / `ingest.dead_letter` (no retention on any of them);
+   `CAIB_NOTIFY_FORMAT` documented but never passed to the detect service in
+   compose; a bad `CAIB_NOTIFY_MIN_SEVERITY` crashing at first alert instead
+   of at startup; SIGHUP reload killing the process on a YAML error (only
+   `ValueError`/`SystemExit` are caught); a permanently-flooding rule
+   notifying once and never again (second overflow folds as `recurrence`);
+   `notify.drain` POSTing inside an open transaction.
+7. **Supply chain / CI**: no dependabot or renovate on six pinned images +
+   `uv.lock`; CI never builds either Dockerfile and never validates the
+   compose files; images run as root and build from `pip install .` rather
+   than `uv.lock`; `actions/checkout@v4` + `setup-uv@v5` are on deprecated
+   Node 20. Repo is still private, untagged, no `SECURITY.md`.
+8. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
    bottom of the spec); a consulting blog post from the bench + DECISIONS
    findings.
 
@@ -68,7 +83,10 @@ Ranked; 1–4 are credential-gated, 5 is pure keyboard work:
   `uv run pytest -q` / `uv run ruff check .` — ruff is strict; run it before
   every commit. Tests need Docker (throwaway `timescale/timescaledb:2.29.2-pg18`
   container per session; CI uses a service container).
-- `make up` auto-creates `.env` from `.env.example` (dev-safe defaults).
+- `make up` auto-creates `.env` with **generated** passwords
+  (`scripts/init_env.sh`); `scripts/preflight.sh` then refuses to start if the
+  example passwords meet a non-loopback `CAIB_BIND_ADDR` (both ports are
+  loopback-bound by default).
   Stack: `make up` / `make demo` (no creds, seeds all 4 modules, fires alerts)
   / `make down`. Volumes persist across down/up.
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`
@@ -80,6 +98,13 @@ Ranked; 1–4 are credential-gated, 5 is pure keyboard work:
 
 ## Gotchas that cost real time (details in DECISIONS.md / HOWTO)
 
+- **The detect loop swallows `psycopg.Error` on purpose** (a broken rule must
+  not kill the engine) — which is why it now re-raises on
+  `conn.closed or conn.broken`. Keep that check in any new handler there, or
+  detect goes back to failing open on a failover.
+- **Both loops stamp `ops.heartbeat` every cycle**; compose healthchecks run
+  `caib-core healthcheck --service X --max-age 120`. A healthcheck does not
+  restart or page anything — external monitoring still owns liveness.
 - **Spilo is a trap**: published images ship Apache-only TimescaleDB. HA uses
   timescaledb-ha instead; service names stay `spilo1..3` to match the spec's
   HAProxy config.
