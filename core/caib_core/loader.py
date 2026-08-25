@@ -14,6 +14,8 @@ import time
 
 import psycopg
 
+from caib_core import heartbeat
+
 log = logging.getLogger("caib.loader")
 
 BATCH_SQL = """
@@ -107,6 +109,7 @@ def main(argv: list[str] | None = None) -> None:
     with psycopg.connect(os.environ["CAIB_PG_URL"]) as conn:
         while True:
             moved, inserted, dead = run_batch(conn, batch_size, drop_raw)
+            heartbeat.beat(conn, "loader")
             if moved:
                 log.info(
                     "moved=%d inserted=%d dead=%d dupes=%d",

@@ -55,6 +55,12 @@ services:
       CAIB_LOADER_BATCH: ${CAIB_LOADER_BATCH:-5000}
       CAIB_LOADER_INTERVAL_S: ${CAIB_LOADER_INTERVAL_S:-5}
       CAIB_DROP_RAW: ${CAIB_DROP_RAW:-false}
+    healthcheck:
+      test: ["CMD", "caib-core", "healthcheck", "--service", "loader", "--max-age", "120"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -72,6 +78,12 @@ services:
       CAIB_DETECT_MAX_ALERTS_PER_TICK: ${CAIB_DETECT_MAX_ALERTS_PER_TICK:-500}
       CAIB_NOTIFY_WEBHOOK_URL: ${CAIB_NOTIFY_WEBHOOK_URL:-}
       CAIB_NOTIFY_MIN_SEVERITY: ${CAIB_NOTIFY_MIN_SEVERITY:-info}
+    healthcheck:
+      test: ["CMD", "caib-core", "healthcheck", "--service", "detect", "--max-age", "120"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - ./detect/rules:/app/detect/rules:ro
     depends_on:

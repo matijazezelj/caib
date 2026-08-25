@@ -31,8 +31,9 @@ NO_TX_MARKER = "caib:no-transaction"
 DOLLAR_TAG_RE = re.compile(r"\$[A-Za-z_]*\$")
 
 # caib_ro also covers ingest: the Overview dashboard reads ingest.landing and
-# ingest.dead_letter (see DECISIONS.md).
-RO_SCHEMAS = ("caib", "ingest", "detect")
+# ingest.dead_letter (see DECISIONS.md). ops carries the loop heartbeats, also
+# on the Overview dashboard.
+RO_SCHEMAS = ("caib", "ingest", "detect", "ops")
 
 
 def bootstrap(conn: psycopg.Connection) -> None:
