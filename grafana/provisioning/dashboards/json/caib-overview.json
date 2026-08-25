@@ -288,10 +288,10 @@
       "id": 9,
       "type": "table",
       "title": "Ingest lag by module",
-      "description": "Time since each module's newest event. Vendor delivery lag dominates (CloudTrail alone batches ~5-15 min); sustained growth = a stuck source. The dead-man rules page on this too.",
+      "description": "Time since each module's newest event. Vendor delivery lag dominates (CloudTrail alone batches ~5-15 min); sustained growth = a stuck source. The dead-man rules page on this too. Bounded to the 2-day rowstore window, with the module list and the fallback timestamp coming from the 5m aggregate, so this never scans compressed chunks.",
       "gridPos": {
         "h": 6,
-        "w": 20,
+        "w": 14,
         "x": 4,
         "y": 16
       },
@@ -346,7 +346,73 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT module, extract(epoch FROM now() - max(event_time))::int AS lag_seconds, max(event_time) AS newest_event FROM caib.events GROUP BY module ORDER BY lag_seconds DESC"
+          "rawSql": "WITH seen AS (SELECT module, max(bucket) AS newest FROM caib.events_5m WHERE bucket > now() - interval '30 days' GROUP BY module), hot AS (SELECT module, max(event_time) AS newest FROM caib.events WHERE event_time > now() - interval '2 days' GROUP BY module) SELECT s.module, extract(epoch FROM now() - coalesce(h.newest, s.newest))::int AS lag_seconds, coalesce(h.newest, s.newest) AS newest_event FROM seen s LEFT JOIN hot h USING (module) ORDER BY lag_seconds DESC"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Engine heartbeats",
+      "description": "Seconds since the loader and detect loops last completed a cycle. A missing or stale detect row means detections have stopped — the dead-man rules cannot cover this, because a stopped engine evaluates nothing. Same check as the container healthchecks: caib-core healthcheck --service detect.",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 16
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "caib"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "seconds_since_beat"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 120
+                    },
+                    {
+                      "color": "red",
+                      "value": 300
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT service, extract(epoch FROM now() - beat_at)::int AS seconds_since_beat FROM ops.heartbeat ORDER BY service"
         }
       ]
     },
