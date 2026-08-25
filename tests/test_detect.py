@@ -1,8 +1,12 @@
 import datetime
 import http.server
 import json
+import os
 import pathlib
+import subprocess
+import sys
 import threading
+import time
 import typing
 
 import psycopg
@@ -163,6 +167,50 @@ def test_crash_between_upsert_and_watermark_is_atomic(migrated_db, monkeypatch):
         conn.commit()
         assert conn.execute("SELECT count(*) FROM detect.alerts").fetchone()[0] == 1
         assert conn.execute("SELECT count(*) FROM detect.outbox").fetchone()[0] == 1
+
+
+def test_engine_exits_when_the_database_connection_dies(migrated_db, tmp_path):
+    """The loop swallows psycopg.Error so a bad rule doesn't kill the engine.
+    A lost connection must not be swallowed too: it never heals on the same
+    connection, so the process has to exit and be restarted."""
+    (tmp_path / "tick.yaml").write_text(
+        "id: x.tick\nmodule: x\ntitle: tick\nseverity: low\ninterval: 1\n"
+        "sql: SELECT 'k' AS dedup_key, '{}'::jsonb AS entity, '{}'::jsonb AS context,"
+        " now() AS last_event_time WHERE %(wm_from)s > %(wm_to)s\n"
+    )
+    app_name = "caib_detect_conn_loss"
+    env = {
+        **os.environ,
+        "CAIB_PG_URL": f"{migrated_db}?application_name={app_name}",
+        "CAIB_RULES_DIR": str(tmp_path),
+        "CAIB_DETECT_TICK_S": "0.1",
+        "CAIB_DETECT_SAFETY_LAG": "0",
+        "CAIB_NOTIFY_WEBHOOK_URL": "",
+    }
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "from caib_core.detect import main; main()"],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        with psycopg.connect(migrated_db, autocommit=True) as conn:
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if conn.execute(
+                    "SELECT count(*) FROM pg_stat_activity WHERE application_name = %s",
+                    (app_name,),
+                ).fetchone()[0]:
+                    break
+                time.sleep(0.1)
+            else:
+                raise AssertionError("detect never connected")
+            conn.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                " WHERE application_name = %s",
+                (app_name,),
+            )
+        assert proc.wait(timeout=30) != 0, "detect kept running without a database"
+    finally:
+        proc.kill()
 
 
 def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):

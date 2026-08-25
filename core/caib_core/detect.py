@@ -25,7 +25,7 @@ import yaml
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from caib_core import notify
+from caib_core import heartbeat, notify
 
 log = logging.getLogger("caib.detect")
 
@@ -266,6 +266,10 @@ def evaluate_rule(conn: psycopg.Connection, rule: Rule, cfg: Cfg) -> dict | None
     return {"rows": len(rows), "overflow": overflow, "wm_to": wm_to}
 
 
+def _connection_lost(conn: psycopg.Connection) -> bool:
+    return bool(conn.closed or conn.broken)
+
+
 def advance_watermarks(conn: psycopg.Connection, rules: list[Rule]) -> None:
     """Backfill mode: mark everything already ingested as evaluated. Mandatory
     after any historical import, or every rule fires on day one."""
@@ -331,6 +335,13 @@ def main(argv: list[str] | None = None) -> None:
                         log.info("rule=%s rows=%d overflow=%s",
                                  rule.id, stats["rows"], stats["overflow"])
                 except psycopg.Error:
+                    # A rule's own SQL failing is survivable — its window retries.
+                    # A dead connection is not: every later tick would fail the
+                    # same way while the process stayed up, so detection would
+                    # stop with nothing to notice it. Crash and let compose
+                    # restart us, like the loader and the pollers do.
+                    if _connection_lost(conn):
+                        raise
                     log.exception("rule %s failed; window will be retried", rule.id)
                 next_run[rule.id] = now_mono + rule.interval_s
 
@@ -340,7 +351,11 @@ def main(argv: list[str] | None = None) -> None:
                 if failed:
                     log.warning("notify: %d failed, backoff %.0fs", failed, notify_backoff)
             except psycopg.Error:
+                if _connection_lost(conn):
+                    raise
                 log.exception("notify drain failed")
+
+            heartbeat.beat(conn, "detect")
 
             if args.once:
                 return
