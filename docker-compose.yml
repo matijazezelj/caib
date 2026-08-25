@@ -19,7 +19,7 @@ services:
       # parent covers both old and new layouts.
       - pgdata:/var/lib/postgresql
     ports:
-      - "${CAIB_PG_PORT:-5432}:5432"
+      - "${CAIB_BIND_ADDR:-127.0.0.1}:${CAIB_PG_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d caib"]
       interval: 5s
@@ -34,7 +34,7 @@ services:
     image: caib-core:dev
     command: ["migrate"]
     environment:
-      CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@timescaledb:5432/caib
+      CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_PG_APP_PASSWORD: ${CAIB_PG_APP_PASSWORD:?set in .env}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
     volumes:
@@ -51,7 +51,7 @@ services:
       dockerfile: core/Dockerfile
     command: ["loader"]
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_LOADER_BATCH: ${CAIB_LOADER_BATCH:-5000}
       CAIB_LOADER_INTERVAL_S: ${CAIB_LOADER_INTERVAL_S:-5}
       CAIB_DROP_RAW: ${CAIB_DROP_RAW:-false}
@@ -73,7 +73,7 @@ services:
       dockerfile: core/Dockerfile
     command: ["detect"]
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_DETECT_SAFETY_LAG: ${CAIB_DETECT_SAFETY_LAG:-60}
       CAIB_DETECT_MAX_ALERTS_PER_TICK: ${CAIB_DETECT_MAX_ALERTS_PER_TICK:-500}
       CAIB_NOTIFY_WEBHOOK_URL: ${CAIB_NOTIFY_WEBHOOK_URL:-}
@@ -99,7 +99,7 @@ services:
     profiles: ["cloudflare_audit"]
     environment:
       CAIB_MODULE: cloudflare_audit
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_CLOUDFLARE_API_TOKEN: ${CAIB_CLOUDFLARE_API_TOKEN:-}
       CAIB_CLOUDFLARE_ACCOUNT_ID: ${CAIB_CLOUDFLARE_ACCOUNT_ID:-}
       CAIB_CLOUDFLARE_AUDIT_BACKFILL: ${CAIB_CLOUDFLARE_AUDIT_BACKFILL:-}
@@ -116,7 +116,7 @@ services:
     profiles: ["azure_activity"]
     environment:
       CAIB_MODULE: azure_activity
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_AZURE_TENANT_ID: ${CAIB_AZURE_TENANT_ID:-}
       CAIB_AZURE_CLIENT_ID: ${CAIB_AZURE_CLIENT_ID:-}
       CAIB_AZURE_CLIENT_SECRET: ${CAIB_AZURE_CLIENT_SECRET:-}
@@ -136,7 +136,7 @@ services:
       - --config
       - /etc/vector/modules/aws_cloudtrail.yaml
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_CLOUDTRAIL_SQS_URL: ${CAIB_CLOUDTRAIL_SQS_URL:-}
       CAIB_AWS_REGION: ${CAIB_AWS_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
@@ -159,7 +159,7 @@ services:
       - --config
       - /etc/vector/modules/gcp_audit.yaml
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_GCP_PROJECT: ${CAIB_GCP_PROJECT:-}
       CAIB_GCP_SUBSCRIPTION: ${CAIB_GCP_SUBSCRIPTION:-}
     volumes:
@@ -175,14 +175,15 @@ services:
   grafana:
     image: grafana/grafana:12.4.9
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${CAIB_GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${CAIB_GRAFANA_ADMIN_PASSWORD:?set in .env}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
       CAIB_GRAFANA_DS_URL: ${CAIB_GRAFANA_DS_URL:-timescaledb:5432}
+      CAIB_PG_SSLMODE: ${CAIB_PG_SSLMODE:-prefer}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "${CAIB_GRAFANA_PORT:-3000}:3000"
+      - "${CAIB_BIND_ADDR:-127.0.0.1}:${CAIB_GRAFANA_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/health"]
       interval: 10s

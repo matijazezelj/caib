@@ -11,7 +11,9 @@ datasources:
     editable: false
     jsonData:
       database: caib
-      sslmode: disable
+      # Was hardcoded to disable, which no deployment could change without
+      # editing this tracked file. Default matches the app connections.
+      sslmode: $__env{CAIB_PG_SSLMODE}
       timescaledb: true
     secureJsonData:
       password: $__env{CAIB_PG_RO_PASSWORD}

@@ -96,15 +96,15 @@ services:
       haproxy:
         condition: service_started
     environment:
-      CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@haproxy:5000/caib
+      CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   loader:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   detect:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   grafana:
     environment:
@@ -112,19 +112,19 @@ services:
 
   poller-cloudflare-audit:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   poller-azure-activity:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   vector-aws-cloudtrail:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
   vector-gcp-audit:
     environment:
-      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
 
 volumes:
   etcd_data:

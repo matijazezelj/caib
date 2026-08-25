@@ -14,12 +14,17 @@ empirical findings: [`DECISIONS.md`](DECISIONS.md).
 Requires Docker with the Compose plugin.
 
 ```sh
-make up        # creates .env from .env.example on first run, builds, starts
+make up        # generates .env with random passwords on first run, builds, starts
 make demo      # seed fixture data (30 days) + fire sample detections — no cloud creds
-# Grafana: http://localhost:3000 (admin / value of CAIB_GRAFANA_ADMIN_PASSWORD)
+# Grafana: http://127.0.0.1:3000 (admin / CAIB_GRAFANA_ADMIN_PASSWORD, printed
+# by the first `make up` and stored in .env)
 make logs      # follow everything
 make down      # stop
 ```
+
+Postgres and Grafana bind to `127.0.0.1` (`CAIB_BIND_ADDR`). Putting this on a
+real host — reverse proxy, TLS, what to monitor — is
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 `make demo` gets a cold clone to populated dashboards (Overview, per-module,
 Alerts) and real firing alerts in under two minutes.
@@ -89,7 +94,8 @@ Converting public Sigma cloud rules: `uv run python -m caib_core.sigma
 --module aws_cloudtrail rule.yml` (existence shape; see the module for limits).
 Slack notifications: point `CAIB_NOTIFY_WEBHOOK_URL` at an incoming webhook —
 Block Kit formatting is automatic for `hooks.slack.com` URLs.
-Backups: [docs/BACKUPS.md](docs/BACKUPS.md).
+Backups: [docs/BACKUPS.md](docs/BACKUPS.md). Deploying on a real host:
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## High availability
 
@@ -117,6 +123,9 @@ follow the primary automatically — they're catalog state, not node state.
 - Give each node local NVMe for `PGDATA`; set `shared_buffers` etc. for the
   hardware (the overlay ships Postgres defaults).
 - Add backups before you need them: see [docs/BACKUPS.md](docs/BACKUPS.md).
+- The app → HAProxy → Postgres hop now crosses a network: set
+  `CAIB_PG_SSLMODE=verify-full` with server certs and narrow `ha/patroni.yml`'s
+  `pg_hba` from `0.0.0.0/0`. See [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Measured performance (`make bench`)
 
