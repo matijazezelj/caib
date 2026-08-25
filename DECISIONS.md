@@ -164,3 +164,65 @@ Spec §Data model says caib_ro gets SELECT on `caib.*`, `detect.*` only, but the
 Overview dashboard reads `ingest.landing` (backlog stat) and `ingest.dead_letter` (count).
 Grants therefore include SELECT on the `ingest` schema for caib_ro. Read-only, no secrets
 in those tables (payloads are the same data as `caib.events.raw`).
+
+## 2026-08-25 — P0 hardening round (post-handover code review)
+
+A review of the shipped code against its own docs turned up five things that
+would bite on first real use. All fixed; recording what was found, because
+three of them were invisible from the outside.
+
+**detect failed open on connection loss.** The loop catches `psycopg.Error` per
+rule so one broken rule can't kill the engine — which also swallowed
+connection loss. After a Postgres restart or an HA failover, every tick raised,
+the process stayed up, `restart: unless-stopped` never fired, and detection
+stopped silently. Reproduced by terminating detect's backend: it ran on
+regardless. The loop now re-raises when `conn.closed or conn.broken` and lets
+compose restart it, matching the crash rules the loader and pollers already
+follow. `make ha-failover-test` never caught this because it exercises the
+inserter/loader path only.
+
+**Nothing watched the engine itself.** Dead-man rules cover a source going
+quiet, but a stopped engine evaluates no rules, including the dead-man ones —
+the alarm cannot detect its own absence. Added `ops.heartbeat` (migration 0006,
+stamped every cycle by loader and detect), `caib-core healthcheck --service X
+--max-age N`, compose healthchecks on both loops, and an Overview panel. Also
+the honest limit, now documented: a Docker healthcheck marks a container
+unhealthy, it does not restart it and it does not page anyone. External
+monitoring still owns liveness. `caib_ro` gains SELECT on `ops` for the panel.
+
+**The Overview ingest-lag panel was unbounded.** `max(event_time) GROUP BY
+module FROM caib.events` with no time predicate, refreshing every minute — a
+walk across all 90 days of chunks, compressed ones included, and a direct
+violation of the spec's own panel data policy. Rewritten to take the module
+list plus a fallback timestamp from `caib.events_5m` and the precise timestamp
+from a 2-day rowstore window, so a silent module still shows a growing lag
+instead of disappearing. `tests/test_dashboards.py` now EXPLAINs every
+provisioned panel and fails on any panel reading `caib.events` without a time
+bound — the dashboards previously had no test coverage at all.
+
+**The documented first run shipped published passwords on 0.0.0.0.** `make up`
+did `cp .env.example .env`, and compose published 5432 and 3000 with no
+interface prefix (which bypasses ufw/firewalld — Docker owns its own iptables
+chain). The `:?set in .env` guards only catch *unset*, never *unchanged*. Now:
+`scripts/init_env.sh` generates random passwords on first run, `CAIB_BIND_ADDR`
+defaults to `127.0.0.1` for both published ports, and `scripts/preflight.sh`
+refuses to start when example passwords meet a non-loopback bind
+(`CAIB_ALLOW_DEFAULT_SECRETS=1` overrides). Defaults on loopback warn only —
+refusing there would break the dev flow the demo depends on.
+
+**TLS was hardcoded off.** Every connection URL was bare and the Grafana
+datasource pinned `sslmode: disable` in a tracked provisioning file, so no
+deployment could enable TLS without editing the repo. Single `CAIB_PG_SSLMODE`
+(default `prefer`) now drives every app URL and the datasource via
+`$__env{}` — verified live that Grafana interpolates it (`jsonData.sslmode:
+prefer`, datasource health OK). `prefer` verifies nothing; `docs/DEPLOY.md` is
+new and says so, along with the reverse-proxy, secrets, monitoring, retention,
+and known-rough-edges list (containers still run as root; images build from
+`pip install .`, not `uv.lock`).
+
+Not addressed in this round, still open: unbounded `detect.outbox` /
+`detect.alerts` / `ingest.dead_letter` growth; `CAIB_NOTIFY_FORMAT` documented
+but never passed to the detect service; a bad `CAIB_NOTIFY_MIN_SEVERITY`
+crashing at first alert instead of at startup; SIGHUP reload killing the
+process on a YAML error; a permanently-flooding rule notifying only once; no
+dependabot; CI not building the Dockerfiles.

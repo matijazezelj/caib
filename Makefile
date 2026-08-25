@@ -4,10 +4,10 @@ COMPOSE_HA ?= docker compose -f docker-compose.yml -f compose.ha.yml
 .PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test new-module
 
 .env:
-	cp .env.example .env
-	@echo "Created .env from .env.example (dev defaults). Change passwords for anything real."
+	@bash scripts/init_env.sh
 
 up: .env
+	@bash scripts/preflight.sh
 	$(COMPOSE) up -d --build
 
 down:
@@ -30,6 +30,7 @@ demo: .env
 	@set -a; . ./.env; set +a; uv run python scripts/demo_seed.py
 
 ha-up: .env
+	@bash scripts/preflight.sh
 	$(COMPOSE) down --remove-orphans
 	$(COMPOSE_HA) up -d --build
 
