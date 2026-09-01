@@ -104,6 +104,74 @@ def test_lookback_parsing():
     assert detect.lookback_interval("30 minutes") == "30 minutes"
 
 
+def test_parse_rule_rejects_malformed_rules(tmp_path):
+    """parse_rule is the only thing between a typo and a rule that silently
+    never fires — validate_rules only checks SQL that parsed."""
+    good = {
+        "id": "x.r", "module": "x", "title": "t",
+        "severity": "low", "interval": 60, "sql": "SELECT 1",
+    }
+
+    def write(name: str, body: str) -> pathlib.Path:
+        path = tmp_path / name
+        path.write_text(body)
+        return path
+
+    def yaml_of(doc: dict) -> str:
+        return "".join(f"{k}: {v}\n" for k, v in doc.items())
+
+    assert detect.parse_rule(write("ok.yaml", yaml_of(good))).id == "x.r"
+
+    with pytest.raises(TypeError, match="not a mapping"):
+        detect.parse_rule(write("list.yaml", "- just\n- a list\n"))
+
+    for key in ("id", "module", "sql", "severity", "interval"):
+        doc = {k: v for k, v in good.items() if k != key}
+        with pytest.raises(ValueError, match="missing"):
+            detect.parse_rule(write(f"no_{key}.yaml", yaml_of(doc)))
+
+    with pytest.raises(ValueError, match="unknown keys"):
+        detect.parse_rule(write("extra.yaml", yaml_of({**good, "sevrity": "low"})))
+
+    with pytest.raises(ValueError, match="bad severity"):
+        detect.parse_rule(write("sev.yaml", yaml_of({**good, "severity": "urgent"})))
+
+    for bad_interval in ("60s", "0", "-1"):
+        with pytest.raises(ValueError, match="interval"):
+            detect.parse_rule(
+                write(f"int_{bad_interval}.yaml", yaml_of({**good, "interval": bad_interval}))
+            )
+
+
+def test_cfg_from_env_reads_every_knob(monkeypatch):
+    """Cfg.from_env is what the running service uses; every test until now
+    built Cfg directly, so a typo'd env name would not have shown up."""
+    for var in (
+        "CAIB_DETECT_SAFETY_LAG", "CAIB_DETECT_MAX_ALERTS_PER_TICK",
+        "CAIB_NOTIFY_WEBHOOK_URL", "CAIB_NOTIFY_MIN_SEVERITY",
+        "CAIB_DETECT_TICK_S", "CAIB_NOTIFY_FORMAT",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    default = Cfg.from_env()
+    assert (default.safety_lag_s, default.max_alerts_per_tick) == (60.0, 500)
+    assert (default.webhook_url, default.min_severity) == ("", "info")
+    assert (default.tick_s, default.notify_format) == (15.0, "json")
+
+    monkeypatch.setenv("CAIB_DETECT_SAFETY_LAG", "0")
+    monkeypatch.setenv("CAIB_DETECT_MAX_ALERTS_PER_TICK", "7")
+    monkeypatch.setenv("CAIB_NOTIFY_WEBHOOK_URL", "https://hooks.slack.com/services/T/B/X")
+    monkeypatch.setenv("CAIB_NOTIFY_MIN_SEVERITY", "high")
+    monkeypatch.setenv("CAIB_DETECT_TICK_S", "0.5")
+    cfg = Cfg.from_env()
+    assert (cfg.safety_lag_s, cfg.max_alerts_per_tick, cfg.tick_s) == (0.0, 7, 0.5)
+    assert cfg.min_severity == "high"
+    # A Slack webhook auto-selects Block Kit; an explicit format still wins.
+    assert cfg.notify_format == "slack"
+    monkeypatch.setenv("CAIB_NOTIFY_FORMAT", "json")
+    assert Cfg.from_env().notify_format == "json"
+
+
 # --- evaluation -------------------------------------------------------------
 
 
