@@ -56,6 +56,50 @@ def test_get_4xx_raises_immediately():
     assert len(calls) == 1
 
 
+def test_get_retries_transport_errors_then_succeeds():
+    """A dropped connection is retryable; the 429 and 4xx tests both go through
+    a response, so this branch of the retry loop had no cover."""
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) < 3:
+            raise httpx.ConnectError("connection refused")
+        return httpx.Response(200, json={"ok": True})
+
+    ctx, client = make_ctx(handler)
+    with client:
+        assert ctx.get("https://api.example.com/x").json() == {"ok": True}
+    assert len(calls) == 3
+
+
+def test_get_reports_the_transport_error_it_gave_up_on():
+    """The give-up message is the only breadcrumb when a poller crash-loops;
+    it has to name the transport failure, not an empty string."""
+    def handler(request):
+        raise httpx.ConnectTimeout("timed out")
+
+    ctx, client = make_ctx(handler)
+    with client, pytest.raises(RuntimeError, match="ConnectTimeout") as exc:
+        ctx.get("https://api.example.com/x")
+    assert "testmod" in str(exc.value)
+
+
+def test_validate_envelope_rejects_contract_violations():
+    """These rejections are what keep a malformed record out of caib.events and
+    into the dead-letter table instead."""
+    ok = {"event_time": "2026-08-24T00:00:00Z", "action": "Login"}
+    assert framework.validate_envelope(ok) is None
+    assert framework.validate_envelope({**ok, "attrs": {"a": 1}}) is None
+    assert framework.validate_envelope({**ok, "attrs": None}) is None
+
+    assert framework.validate_envelope(["not", "a", "dict"]) == "envelope not an object"
+    assert framework.validate_envelope({"action": "Login"}) == "missing event_time"
+    assert framework.validate_envelope({**ok, "event_time": ""}) == "missing event_time"
+    assert framework.validate_envelope({"event_time": ok["event_time"]}) == "missing action"
+    assert framework.validate_envelope({**ok, "attrs": "nope"}) == "attrs not an object"
+
+
 def test_get_gives_up_after_six_attempts():
     calls = []
 
