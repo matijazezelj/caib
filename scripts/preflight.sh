@@ -12,6 +12,17 @@ cd "$(dirname "$0")/.."
 ENV_FILE=${CAIB_ENV_FILE:-.env}
 [ -f "$ENV_FILE" ] || exit 0
 
+# The comparison needs the shipped defaults to compare against. A host that
+# has .env but not .env.example — deploying without shipping a file full of
+# published passwords is reasonable — would otherwise skip every check below
+# in silence, on any bind address. Say so rather than fail open quietly.
+if [ ! -f .env.example ]; then
+  echo "warning: .env.example not found — cannot check $ENV_FILE for shipped" >&2
+  echo "         example passwords. Verify them by hand before exposing this" >&2
+  echo "         stack beyond loopback." >&2
+  exit 0
+fi
+
 value_of() { grep "^$1=" "$2" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 
 SECRETS="CAIB_PG_SUPERPASS CAIB_PG_APP_PASSWORD CAIB_PG_RO_PASSWORD
