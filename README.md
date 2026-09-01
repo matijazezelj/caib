@@ -74,6 +74,39 @@ make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
 | Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` entrypoints |
 | Pollers | `caib-poller` (built here) | one image, `CAIB_MODULE` selects the module |
 
+## How this compares
+
+CAIB is deliberately narrow: **cloud and SaaS audit logs**, on infrastructure you
+already run, with no per-GB bill. That scope is the whole design, and it is the
+reason to pick it — or to pick something else.
+
+| | CAIB | Security data lake (e.g. [Matano](https://github.com/matanolabs/matano)) | Commercial SIEM (e.g. Panther, Splunk, Sentinel) |
+|---|---|---|---|
+| Runs on | any Docker host — laptop, VPS, on-prem | an AWS account (deploys into it, serverless) | vendor cloud |
+| Storage | one PostgreSQL + TimescaleDB | Iceberg on S3, queried via Athena/Trino/Snowflake | vendor-managed |
+| Scale | single node — 1.3B events/day of measured ingest headroom, 90-day hot window | petabyte | petabyte |
+| Cost model | your hardware | object storage + per-query scan | per-GB/TB ingested |
+| Substring search | trgm-indexed, ~0.14 s over 30 days | per-query lake scan | vendor-indexed |
+| Sources | 4 shipped, cloud/SaaS audit only | 50+, all security telemetry | many, all security telemetry |
+| Operational surface | one compose file, one database | a serverless AWS stack | SaaS |
+
+**Use a security lake or a commercial SIEM instead when** you need petabyte
+scale, sources beyond cloud/SaaS audit logs (EDR, VPC flow, endpoint), query
+from multiple engines over an open table format, or a vendor to call at 3am.
+Those are real requirements and CAIB does not meet them.
+
+**Use CAIB when** the audit logs *are* the point — who changed what in AWS, GCP,
+Azure, Cloudflare, Slack — and you want them in a database you already know how
+to operate, back up and query, with analyst search that answers in
+milliseconds and a bill that does not scale with ingest.
+
+The volume argument is the load-bearing one. Cloud and SaaS *audit* logs are
+orders of magnitude smaller than host or network telemetry: a workload that fits
+comfortably in one Postgres does not need a lake, and paying a lake's
+operational and query cost to hold it is a bad trade. The numbers behind that
+claim are in [Measured performance](#measured-performance-make-bench); the
+ceiling it implies is in [Retention defaults](#retention-defaults).
+
 ## Modules
 
 Enable a module by starting compose with its profile, e.g.
@@ -98,6 +131,11 @@ Backups: [docs/BACKUPS.md](docs/BACKUPS.md). Deploying on a real host:
 [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## High availability
+
+Optional, and not needed to run CAIB. Single-node is the default and the
+supported path for most deployments; this overlay exists for production
+environments that need the primary to survive losing a node. Skip it unless
+that is a requirement you actually have.
 
 ```sh
 make ha-up             # Patroni x3 + etcd + HAProxy (lab, single host)
