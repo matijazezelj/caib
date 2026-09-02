@@ -331,8 +331,16 @@ def main(argv: list[str] | None = None) -> None:
                     validate_rules(conn, fresh)
                     rules = fresh
                     log.info("reloaded %d rules", len(rules))
-                except (ValueError, SystemExit) as exc:
+                except SystemExit as exc:
+                    # validate_rules' own failure mode; it carries a message.
                     log.error("rule reload failed, keeping old set: %s", exc)
+                except Exception:
+                    # Anything else the rules directory can throw — a YAML
+                    # syntax error, an unreadable file, a bad type — must not
+                    # take detection down with it. Only ValueError and
+                    # SystemExit used to be caught, so a stray tab in a rule
+                    # file killed a running engine.
+                    log.exception("rule reload failed, keeping old set")
 
             now_mono = time.monotonic()
             for rule in rules:
