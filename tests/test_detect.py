@@ -540,8 +540,11 @@ def test_failed_post_stays_unsent_and_retries(migrated_db, webhook_url):
         sent, failed = notify.drain(conn, webhook_url)
         conn.commit()
         assert (sent, failed) == (0, 1)
+        # Unsent and unclaimed: a webhook that answered 500 is a failure the
+        # sender saw, so the row is retryable now, not after CLAIM_TIMEOUT.
         assert conn.execute(
-            "SELECT count(*) FROM detect.outbox WHERE sent_at IS NULL"
+            "SELECT count(*) FROM detect.outbox"
+            " WHERE sent_at IS NULL AND claimed_at IS NULL"
         ).fetchone()[0] == 1
 
         Webhook.fail = False
@@ -549,6 +552,84 @@ def test_failed_post_stays_unsent_and_retries(migrated_db, webhook_url):
         conn.commit()
         assert (sent, failed) == (1, 0)
     assert len(Webhook.received) == 1
+
+
+def test_a_sender_that_dies_mid_post_leaves_rows_reclaimable(
+    migrated_db, webhook_url, monkeypatch
+):
+    """The POST now happens outside the claim transaction, so nothing holds a
+    lock on a row that is in flight. The price is that a sender crashing
+    between the claim and the settle leaves the row claimed — it has to come
+    back on its own once the claim ages out, or the notification is lost."""
+    rule = root_login_rule()
+    with psycopg.connect(migrated_db) as conn:
+        land_and_load(conn, [root_login_envelope(0)])
+        detect.evaluate_rule(conn, rule, CFG)
+        conn.commit()
+
+        def die(url, payload):
+            raise RuntimeError("sender died mid-POST")
+
+        monkeypatch.setattr(notify, "_post", die)
+        with pytest.raises(RuntimeError):
+            notify.drain(conn, webhook_url)
+        conn.commit()
+        assert conn.execute(
+            "SELECT claimed_at IS NOT NULL, sent_at IS NOT NULL FROM detect.outbox"
+        ).fetchone() == (True, False)
+
+        # A fresh claim is left alone: the sender might still be mid-POST.
+        monkeypatch.undo()
+        assert notify.drain(conn, webhook_url) == (0, 0)
+        conn.commit()
+        assert Webhook.received == []
+
+        # An aged one is fair game.
+        conn.execute(
+            "UPDATE detect.outbox SET claimed_at = now() - interval '10 minutes'"
+        )
+        conn.commit()
+        assert notify.drain(conn, webhook_url) == (1, 0)
+        conn.commit()
+        assert conn.execute(
+            "SELECT count(*) FROM detect.outbox WHERE sent_at IS NULL"
+        ).fetchone()[0] == 0
+    assert len(Webhook.received) == 1
+
+
+def test_drain_holds_no_transaction_while_posting(migrated_db, webhook_url):
+    """The webhook POST used to run inside the transaction that held FOR UPDATE
+    on the batch, so a slow endpoint pinned an idle-in-transaction connection
+    for TIMEOUT_S per row. Assert from the server's side that it doesn't."""
+    rule = root_login_rule()
+    app_name = "caib_notify_drain"
+    seen: list[str] = []
+    with (
+        psycopg.connect(f"{migrated_db}?application_name={app_name}") as conn,
+        psycopg.connect(migrated_db, autocommit=True) as observer,
+    ):
+        land_and_load(conn, [root_login_envelope(0)])
+        detect.evaluate_rule(conn, rule, CFG)
+        conn.commit()
+
+        real_post = notify._post
+
+        def watched_post(url, payload):
+            seen.append(
+                observer.execute(
+                    "SELECT state FROM pg_stat_activity WHERE application_name = %s",
+                    (app_name,),
+                ).fetchone()[0]
+            )
+            return real_post(url, payload)
+
+        notify._post = watched_post
+        try:
+            assert notify.drain(conn, webhook_url) == (1, 0)
+        finally:
+            notify._post = real_post
+        conn.commit()
+    assert seen == ["idle"], f"drain POSTed with the connection {seen}"
 
 
 def test_blank_url_drains_without_sending(migrated_db):
