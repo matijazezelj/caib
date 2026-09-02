@@ -419,3 +419,137 @@ one waits on the dogfooding round.
 
 Left open: the repo is still private, and the `-s` recipe assumes a signing key
 that is not configured yet. Neither is a keyboard problem.
+
+## 2026-09-02 — agent query layer (todo #5)
+
+Read-only HTTP/JSON API + MCP server over one shared query core, as the todo
+asked. Five findings and three deviations, in the order they bit.
+
+**`caib_ro` already existed, and it is the wrong role for this.** The brief said
+to create `caib_ro` in migration 0008 with SELECT on five tables. But
+`caib_ro` has existed since the initial build: it is Grafana's datasource,
+created in `caib_core.migrate.bootstrap()`, and `sync_grants()` re-grants it
+SELECT on **all tables** in `caib`/`ingest`/`detect`/`ops` on every single
+migrate run — deliberately, because the Overview dashboard reads
+`ingest.landing` and `ingest.dead_letter` (the 2026-08-24 entry above). So the
+brief's grant list is strictly narrower than what `caib_ro` has, and narrowing
+`caib_ro` to match would have broken shipped panels that reviewers consider
+frozen.
+
+Decision: a **second** role, `caib_agent_ro`, with the enumerated five-table
+grant, leaving `caib_ro` untouched. The alternative — reuse `caib_ro` — would
+have handed an LLM the unsanitised vendor payloads in `ingest.*`, which is the
+exact thing the brief's grant list was drawn to prevent. Env var
+`CAIB_AGENT_RO_PASSWORD`; the connection URL keeps the brief's
+`CAIB_RO_PG_URL` name.
+
+**Role creation cannot live in a migration file, and this is structural.**
+Migration files run under `SET LOCAL ROLE caib_app`, and `caib_app` is neither
+a superuser nor a `CREATEROLE` role. `CREATE ROLE`, `GRANT CONNECT ON
+DATABASE` and `ALTER ROLE ... SET` all require privileges it does not have —
+which is precisely why the existing role bootstrap lives in `migrate.py` in the
+first place (its module docstring says so). Split accordingly: the role object
+and its session defaults go in `bootstrap()` next to `caib_app` and `caib_ro`;
+the schema `USAGE` and the five table `SELECT`s go in
+`0008_caib_agent_ro_role.sql`, which `caib_app` can grant because it owns those
+objects. That keeps the security-relevant half — the grant list — in a file
+someone can review, which was the point of asking for a migration.
+
+The session defaults (`statement_timeout=15s`,
+`idle_in_transaction_session_timeout=30s`,
+`default_transaction_read_only=on`) are re-applied on **every** migrate rather
+than once, so an operator who resets them gets them back. They bind anything
+holding the credentials, `psql` included.
+
+**Granting SELECT on a continuous aggregate grants more than it says.**
+TimescaleDB propagates the grant to the cagg's own materialisation objects in
+`_timescaledb_internal` — six extra rows in
+`information_schema.table_privileges` for `events_5m` and `actors_1h`. They
+hold counts already derivable from `caib.events`, which is granted anyway, so
+nothing extra is exposed; recorded because "the role can read exactly five
+tables" is otherwise a claim the catalogue contradicts, and the grant-set test
+has to allow for it.
+
+**`default_transaction_read_only` proves nothing on its own.** It is a
+`USERSET` GUC: any client holding the credentials can `SET` it off. The
+read-only property is the *absence of INSERT/UPDATE/DELETE grants*, and the
+tests assert it that way — flip the GUC off first, then require
+`InsufficientPrivilege` on five writes and a `CREATE TABLE`. Related finding
+while writing those: the GUC is read when a transaction begins, so the `SET`
+needs a commit before it takes effect; psycopg has already opened a transaction
+by then.
+
+**Deviations from the brief, each deliberate.**
+
+- *`list_rules(conn_or_path)` takes a path, not a connection.* The rule set is
+  YAML on disk. It reads through `caib_core.detect.load_rules` — the same call
+  the engine makes — so it cannot describe a rule set the engine is not
+  running. `detect.rule_state` is the only DB side of rules and holds
+  watermarks, which are engine internals and are not granted. The rule SQL is
+  not returned either: it is detection logic, and nothing an analyst agent does
+  with an alert needs it.
+- *`agentapi/` uses a `src/` layout* while `core/` and `pollers/` are flat.
+  Following the brief's explicit `agentapi/src/caib_agentapi/mcp_server.py`
+  path; hatchling handles it, and it is the more standard layout. Noted because
+  it is the one inconsistency in the workspace.
+- *A third Dockerfile rather than extending `core/Dockerfile`.* The brief said
+  to prefer the smaller pin surface, which would have meant installing
+  `caib-agentapi` into `caib-core:dev`. That would put FastAPI, uvicorn, the
+  MCP SDK and their transitive tree — cryptography, pyjwt, starlette,
+  jsonschema — inside the image that runs `migrate`, the loader and the
+  detection engine. Those three **write** to the audit database; the agent
+  layer only reads it, as a different role. Keeping the web stack out of the
+  writers' image is the smaller blast radius. The cost is not two new pins:
+  `agentapi/Dockerfile` carries the same `ghcr.io/astral-sh/uv:0.11.17` and
+  `python:3.12-slim` refs the other two do, and `scripts/check_image_pins.sh`
+  already fails when copies of a pin disagree.
+
+**`module_health` differs from the Overview panel it mirrors, twice.** The
+panel takes its module list from `caib.events_5m` alone, so a freshly started
+stack reports no modules at all while happily ingesting; this takes the union
+of the 30-day cagg and the 2-day rowstore. And the panel's landing-backlog,
+dead-letter and Timescale-job-error stats are simply absent, because
+`caib_agent_ro` cannot read those tables — an operator question, and the
+operator has Grafana. Heartbeats come back as a separate list from modules,
+because `ops.heartbeat` is keyed by service (loader, detect) and there is no
+per-module heartbeat to report; a quiet module shows up as `lag_seconds`
+growing.
+
+**`top_actors` picks its source and says so.** `caib.actors_1h` buckets
+hourly, so a window starting at 09:30 would either count the whole 09:00 bucket
+or drop it. It reads the cagg only when `since` lands on an hour boundary and
+counts `caib.events` otherwise, and reports which in `source` rather than
+leaving the caller to guess at the error bars.
+
+**Guardrails live in the core, not the transports**, so HTTP and MCP cannot
+drift apart in what they will answer or refuse: the LIMIT caps, the 90-day
+lookback ceiling (matching the events retention policy), timestamp coercion,
+and `raw` being opt-in. Clamped windows and truncated pages are reported in
+every response — an agent that does not know a result was truncated reports the
+truncation as the finding. Out-of-enum filters raise instead of matching zero
+rows, because an empty result set reads as "nothing happened", which is the
+worst possible wrong answer about an audit log.
+
+**The MCP SDK resolved to 2.x, not 1.x**, whose API differs enough to matter:
+`MCPServer` rather than `Server` plus decorators, `Tool.input_schema` rather
+than `inputSchema`, and a `ToolError`/`UnexpectedToolError` split where only
+the former's text reaches the model. Pinned `mcp>=2.1` after first writing
+`>=1.2`, which would have let a resolver pick a version that cannot import.
+Tool input schemas are generated from `Annotated[...]` + pydantic `Field`
+rather than hand-written JSON Schema, so the schema an agent reads and the code
+that runs cannot drift.
+
+**No writes in v1**, as specified: no ack, no close, no create, in either
+transport, and no grant behind them if there were. A test fails the build if a
+tool name ever contains ack/close/create/update/delete/silence. The alert
+lifecycle has not survived a dogfooding round yet, and a write API designed
+before then would encode guesses.
+
+Suite 104 → 189 tests; the 3 failures are the pre-existing
+`host.docker.internal` Vector/localstack ones. Left open: nothing here has run
+against real data — the numbers, the lag semantics and the usefulness of the
+tool descriptions are all untested by an actual analyst session, which is what
+todo #3 is for. `scripts/init_env.sh` does not touch an existing `.env`, so an
+already-deployed stack must add `CAIB_AGENT_RO_PASSWORD` and
+`CAIB_AGENT_API_TOKEN` by hand and re-run `make migrate`; that is documented in
+`docs/AGENT_API.md` but not automated.

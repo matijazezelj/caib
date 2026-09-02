@@ -17,6 +17,7 @@ gen() { od -An -tx1 -N16 /dev/urandom | tr -d ' \n'; }
 
 cp .env.example .env
 for var in CAIB_PG_SUPERPASS CAIB_PG_APP_PASSWORD CAIB_PG_RO_PASSWORD \
+           CAIB_AGENT_RO_PASSWORD CAIB_AGENT_API_TOKEN \
            CAIB_HA_REPLICATION_PASSWORD CAIB_GRAFANA_ADMIN_PASSWORD; do
   sed -i.bak "s|^${var}=.*|${var}=$(gen)|" .env
 done

@@ -17,6 +17,7 @@ updates:
     directories:
       - /core
       - /pollers
+      - /agentapi
       - /backup
     schedule:
       interval: weekly
@@ -38,6 +39,7 @@ updates:
       # check them against.
       - dependency-name: caib-core
       - dependency-name: caib-poller
+      - dependency-name: caib-agent-api
       - dependency-name: caib-timescaledb-backup
 
   # Python workspace: the root uv.lock covers root + core/ + pollers/.

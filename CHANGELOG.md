@@ -12,6 +12,25 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Agent query layer
+
+- New optional read-only query surface over the audit log, compose profile
+  `agent-api`: an HTTP/JSON API (`caib-agent-api`) and an MCP stdio server
+  (`caib-agent-mcp`), both over one shared query core (`caib_core.query`).
+  Seven questions: `search_events`, `get_alerts`, `alert_summary`,
+  `top_actors`, `actor_activity`, `module_health`, `list_rules`.
+- New database role `caib_agent_ro` (migration 0008): `SELECT` on five named
+  tables and nothing else — no `ingest.*`, no `detect.outbox` — plus
+  `statement_timeout=15s` and `default_transaction_read_only=on`. It is a
+  different, much narrower role than Grafana's `caib_ro`.
+- Read-only v1: there is no endpoint or tool that acknowledges, closes or
+  creates anything, and no write privilege behind them if there were.
+- New workspace member `agentapi` and a third image, `caib-agent-api`, added
+  to dependabot and the CI build job.
+- Two new generated secrets in `.env`: `CAIB_AGENT_RO_PASSWORD` and
+  `CAIB_AGENT_API_TOKEN`. The API refuses to start without the latter. An
+  existing `.env` needs both added by hand — see `docs/AGENT_API.md`.
+
 ### Supply chain and CI
 
 - Bumped `actions/checkout` to v7.0.1 and `astral-sh/setup-uv` to v10.0.1, off

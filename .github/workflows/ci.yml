@@ -56,6 +56,8 @@ jobs:
         run: docker build -f core/Dockerfile -t caib-core:ci .
       - name: Build caib-poller
         run: docker build -f pollers/Dockerfile -t caib-poller:ci .
+      - name: Build caib-agent-api
+        run: docker build -f agentapi/Dockerfile -t caib-agent-api:ci .
       # Context is ./backup, matching compose.backup.yml.
       - name: Build caib-timescaledb-backup
         run: docker build -t caib-timescaledb-backup:ci ./backup
