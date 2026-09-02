@@ -87,3 +87,22 @@ def test_changed_secrets_pass_anywhere(tmp_path):
     result = preflight(env_file)
     assert result.returncode == 0, result.stderr
     assert "warning" not in result.stderr
+
+
+def test_detect_service_receives_every_documented_knob():
+    """CAIB_NOTIFY_FORMAT was documented in .env.example for a whole release
+    without ever being passed to the detect container, so setting it did
+    nothing. Every detect/notify/retention knob the example file documents —
+    commented out or not — has to reach the service."""
+    import yaml
+
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    passed = set(compose["services"]["detect"]["environment"])
+    prefixes = ("CAIB_DETECT_", "CAIB_NOTIFY_", "CAIB_RETENTION_")
+    documented = {
+        line.lstrip("#").split("=", 1)[0]
+        for line in EXAMPLE.read_text().splitlines()
+        if line.lstrip("#").startswith(prefixes)
+    }
+    assert documented, "no detect knobs found in .env.example"
+    assert documented <= passed, f"not passed to detect: {sorted(documented - passed)}"
