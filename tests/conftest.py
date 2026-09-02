@@ -79,12 +79,25 @@ def pg_db_url(pg_server_url: str) -> str:
         conn.execute(f'DROP DATABASE "{dbname}" WITH (FORCE)')
 
 
+AGENT_RO_PASSWORD = "agent-ro-test-pw"
+
+
 @pytest.fixture()
 def migrated_db(pg_db_url: str, monkeypatch) -> str:
     monkeypatch.setenv("CAIB_PG_APP_PASSWORD", "app-test-pw")
     monkeypatch.setenv("CAIB_PG_RO_PASSWORD", "ro-test-pw")
+    monkeypatch.setenv("CAIB_AGENT_RO_PASSWORD", AGENT_RO_PASSWORD)
     migrate.run(pg_db_url, MIGRATIONS_DIR)
     return pg_db_url
+
+
+@pytest.fixture()
+def agent_ro_url(migrated_db: str) -> str:
+    """The same database as `migrated_db`, as the agent query layer sees it:
+    caib_agent_ro, five readable tables, read-only by role default."""
+    base, _, dbname = migrated_db.rpartition("/")
+    host = base.rpartition("@")[2]
+    return f"postgresql://caib_agent_ro:{AGENT_RO_PASSWORD}@{host}/{dbname}"
 
 
 @pytest.fixture()

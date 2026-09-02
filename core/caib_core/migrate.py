@@ -35,6 +35,30 @@ DOLLAR_TAG_RE = re.compile(r"\$[A-Za-z_]*\$")
 # on the Overview dashboard.
 RO_SCHEMAS = ("caib", "ingest", "detect", "ops")
 
+# The agent query layer's role. Separate from caib_ro on purpose — caib_ro is
+# Grafana's, and sync_grants() below keeps handing it SELECT on every table in
+# every schema above, ingest.* included. caib_agent_ro's grants are enumerated
+# one table at a time in migration 0008 instead. Nothing here grants it
+# anything beyond CONNECT.
+AGENT_ROLE = "caib_agent_ro"
+
+# Session defaults for that role, so the caps hold for anything holding its
+# credentials — psql included, not just caib_agent_api. They live here rather
+# than in migration 0008 because ALTER ROLE ... SET on another role needs
+# superuser (or CREATEROLE plus ADMIN), and migration files run as caib_app.
+# Re-applied on every migrate: this is the enforcement, so let it self-heal.
+AGENT_ROLE_SETTINGS = (
+    # A runaway query dies in the database, not in whatever is holding the
+    # connection. Mirrored by a client-side cap in caib_agentapi, but this is
+    # the one that cannot be edited out of the caller.
+    ("statement_timeout", "15s"),
+    # Belt to the grants' braces: even a SELECT-only role can hold locks and
+    # pin xmin through an open transaction.
+    ("idle_in_transaction_session_timeout", "30s"),
+    # Read-only v1 is a property of the role, not of the code in front of it.
+    ("default_transaction_read_only", "on"),
+)
+
 
 def bootstrap(conn: psycopg.Connection) -> None:
     conn.execute(
@@ -46,6 +70,12 @@ def bootstrap(conn: psycopg.Connection) -> None:
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'caib_ro') THEN
             CREATE ROLE caib_ro LOGIN;
           END IF;
+          -- LOGIN, and deliberately passwordless: with no password set, scram
+          -- authentication cannot succeed, so the role is inert until an
+          -- operator supplies CAIB_AGENT_RO_PASSWORD and sync_passwords() runs.
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'caib_agent_ro') THEN
+            CREATE ROLE caib_agent_ro LOGIN;
+          END IF;
         END $$
         """
     )
@@ -54,6 +84,19 @@ def bootstrap(conn: psycopg.Connection) -> None:
             sql.Identifier(conn.info.dbname)
         )
     )
+    # PUBLIC already has CONNECT on a database by default; granting it by name
+    # means the role keeps working on a hardened deployment that revoked it.
+    conn.execute(
+        sql.SQL("GRANT CONNECT ON DATABASE {} TO caib_agent_ro").format(
+            sql.Identifier(conn.info.dbname)
+        )
+    )
+    for name, value in AGENT_ROLE_SETTINGS:
+        conn.execute(
+            sql.SQL("ALTER ROLE {} SET {} = {}").format(
+                sql.Identifier(AGENT_ROLE), sql.Identifier(name), sql.Literal(value)
+            )
+        )
     conn.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
     conn.execute("CREATE SCHEMA IF NOT EXISTS caib AUTHORIZATION caib_app")
     conn.execute(
@@ -169,7 +212,12 @@ def split_statements(text: str) -> list[str]:
 
 
 def sync_passwords(conn: psycopg.Connection) -> None:
-    for role, var in (("caib_app", "CAIB_PG_APP_PASSWORD"), ("caib_ro", "CAIB_PG_RO_PASSWORD")):
+    roles = (
+        ("caib_app", "CAIB_PG_APP_PASSWORD"),
+        ("caib_ro", "CAIB_PG_RO_PASSWORD"),
+        (AGENT_ROLE, "CAIB_AGENT_RO_PASSWORD"),
+    )
+    for role, var in roles:
         password = os.environ.get(var)
         if not password:
             log.warning("%s not set; password for role %s left unchanged", var, role)

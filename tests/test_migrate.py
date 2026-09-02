@@ -9,6 +9,7 @@ from caib_core import migrate
 def role_passwords(monkeypatch):
     monkeypatch.setenv("CAIB_PG_APP_PASSWORD", "app-test-pw")
     monkeypatch.setenv("CAIB_PG_RO_PASSWORD", "ro-test-pw")
+    monkeypatch.setenv("CAIB_AGENT_RO_PASSWORD", "agent-ro-test-pw")
 
 
 def test_migrate_bootstrap_and_idempotency(pg_db_url: str, role_passwords, tmp_path) -> None:
@@ -36,9 +37,32 @@ def test_migrate_bootstrap_and_idempotency(pg_db_url: str, role_passwords, tmp_p
 def test_roles_can_log_in_with_synced_passwords(pg_db_url: str, role_passwords) -> None:
     migrate.run(pg_db_url, pathlib.Path("/nonexistent"))
     base = pg_db_url.rsplit("@", 1)[1]
-    for role, pw in (("caib_app", "app-test-pw"), ("caib_ro", "ro-test-pw")):
+    roles = (
+        ("caib_app", "app-test-pw"),
+        ("caib_ro", "ro-test-pw"),
+        ("caib_agent_ro", "agent-ro-test-pw"),
+    )
+    for role, pw in roles:
         with psycopg.connect(f"postgresql://{role}:{pw}@{base}") as conn:
             assert conn.execute("SELECT current_user").fetchone()[0] == role
+
+
+def test_agent_role_session_defaults_are_set(pg_db_url: str, role_passwords) -> None:
+    """The caps that hold for anything holding caib_agent_ro's credentials,
+    not just for the code in caib_agentapi. Bootstrap re-applies them on every
+    migrate, so an operator who resets them gets them back."""
+    migrate.run(pg_db_url, pathlib.Path("/nonexistent"))
+    base = pg_db_url.rsplit("@", 1)[1]
+    with psycopg.connect(f"postgresql://caib_agent_ro:agent-ro-test-pw@{base}") as conn:
+        settings = {
+            guc: conn.execute(f"SHOW {guc}").fetchone()[0]
+            for guc, _ in migrate.AGENT_ROLE_SETTINGS
+        }
+    assert settings == {
+        "statement_timeout": "15s",
+        "idle_in_transaction_session_timeout": "30s",
+        "default_transaction_read_only": "on",
+    }
 
 
 def test_duplicate_migration_numbers_rejected(pg_db_url: str, role_passwords, tmp_path) -> None:

@@ -26,6 +26,7 @@ fi
 value_of() { grep "^$1=" "$2" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 
 SECRETS="CAIB_PG_SUPERPASS CAIB_PG_APP_PASSWORD CAIB_PG_RO_PASSWORD
+         CAIB_AGENT_RO_PASSWORD CAIB_AGENT_API_TOKEN
          CAIB_HA_REPLICATION_PASSWORD CAIB_GRAFANA_ADMIN_PASSWORD"
 
 unchanged=""
