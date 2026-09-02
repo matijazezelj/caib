@@ -48,7 +48,11 @@ ON CONFLICT (rule_id, dedup_key) DO UPDATE SET
   context     = EXCLUDED.context,
   status      = CASE WHEN detect.alerts.status = 'closed' THEN 'open'
                      ELSE detect.alerts.status END
-RETURNING id, (xmax = 0) AS is_new, first_seen, last_seen, event_count
+-- meta_due reads last_notified_at, which DO UPDATE never touches, so RETURNING
+-- hands back the value from before this upsert: when we last notified.
+RETURNING id, (xmax = 0) AS is_new, first_seen, last_seen, event_count,
+          (last_notified_at IS NULL
+           OR last_notified_at < now() - %(meta_interval)s::interval) AS meta_due
 """
 
 
@@ -78,6 +82,7 @@ class Cfg:
     tick_s: float = 15.0
     first_run_lookback_s: float = 3600.0
     notify_format: str = "json"
+    overflow_notify_interval_s: float = 3600.0
 
     @classmethod
     def from_env(cls) -> "Cfg":
@@ -97,6 +102,9 @@ class Cfg:
             webhook_url=webhook_url,
             min_severity=min_severity,
             tick_s=float(os.environ.get("CAIB_DETECT_TICK_S", "15")),
+            overflow_notify_interval_s=float(
+                os.environ.get("CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL", "3600")
+            ),
             notify_format=notify.resolve_format(
                 os.environ.get("CAIB_NOTIFY_FORMAT", ""), webhook_url
             ),
@@ -171,6 +179,11 @@ def _enqueue(conn: psycopg.Connection, alert_id: int, kind: str, payload: dict) 
         "INSERT INTO detect.outbox (alert_id, kind, payload) VALUES (%s, %s, %s)",
         (alert_id, kind, Jsonb(payload)),
     )
+    # Same transaction as the enqueue, so the meta rate-limit can never count a
+    # notification that got rolled back.
+    conn.execute(
+        "UPDATE detect.alerts SET last_notified_at = now() WHERE id = %s", (alert_id,)
+    )
 
 
 def _set_watermark(conn: psycopg.Connection, rule_id: str, wm_to: datetime.datetime) -> None:
@@ -197,11 +210,20 @@ def _upsert_alert(
             "context": Jsonb(context),
             "seen": row["last_event_time"],
             "event_count": event_count,
+            "meta_interval": f"{cfg.overflow_notify_interval_s} seconds",
         },
     ).fetchone()
-    alert_id, is_new, first_seen, last_seen, total = rec
-    kind = kind_new if is_new else "recurrence"
-    wants_notify = (kind != "recurrence") or rule.notify_recurrence
+    alert_id, is_new, first_seen, last_seen, total, meta_due = rec
+    if kind_new == "meta":
+        # A rule that overflows on every tick re-upserts the same 'overflow'
+        # dedup_key forever, so the fold below would label every overflow after
+        # the first a 'recurrence' and stay silent — a firehose you hear about
+        # once. Keep the kind and rate-limit the notification instead.
+        kind = "meta"
+        wants_notify = meta_due
+    else:
+        kind = kind_new if is_new else "recurrence"
+        wants_notify = is_new or rule.notify_recurrence
     if wants_notify and _severity_notifies(cfg, rule.severity):
         _enqueue(
             conn,

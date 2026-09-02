@@ -151,6 +151,7 @@ def test_cfg_from_env_reads_every_knob(monkeypatch):
         "CAIB_DETECT_SAFETY_LAG", "CAIB_DETECT_MAX_ALERTS_PER_TICK",
         "CAIB_NOTIFY_WEBHOOK_URL", "CAIB_NOTIFY_MIN_SEVERITY",
         "CAIB_DETECT_TICK_S", "CAIB_NOTIFY_FORMAT",
+        "CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -158,14 +159,17 @@ def test_cfg_from_env_reads_every_knob(monkeypatch):
     assert (default.safety_lag_s, default.max_alerts_per_tick) == (60.0, 500)
     assert (default.webhook_url, default.min_severity) == ("", "info")
     assert (default.tick_s, default.notify_format) == (15.0, "json")
+    assert default.overflow_notify_interval_s == 3600.0
 
     monkeypatch.setenv("CAIB_DETECT_SAFETY_LAG", "0")
     monkeypatch.setenv("CAIB_DETECT_MAX_ALERTS_PER_TICK", "7")
     monkeypatch.setenv("CAIB_NOTIFY_WEBHOOK_URL", "https://hooks.slack.com/services/T/B/X")
     monkeypatch.setenv("CAIB_NOTIFY_MIN_SEVERITY", "high")
     monkeypatch.setenv("CAIB_DETECT_TICK_S", "0.5")
+    monkeypatch.setenv("CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL", "900")
     cfg = Cfg.from_env()
     assert (cfg.safety_lag_s, cfg.max_alerts_per_tick, cfg.tick_s) == (0.0, 7, 0.5)
+    assert cfg.overflow_notify_interval_s == 900.0
     assert cfg.min_severity == "high"
     # A Slack webhook auto-selects Block Kit; an explicit format still wins.
     assert cfg.notify_format == "slack"
@@ -341,8 +345,9 @@ def test_sighup_with_an_unparseable_rule_keeps_the_old_set(migrated_db, tmp_path
         proc.kill()
 
 
-def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
-    flood = Rule(
+def flood_rule() -> Rule:
+    """A rule that returns 600 rows every time it is evaluated."""
+    return Rule(
         id="x.flood", module="x", title="flood", severity="low", interval_s=60,
         sql=(
             "SELECT i::text AS dedup_key, '{}'::jsonb AS entity,"
@@ -351,6 +356,10 @@ def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
             " WHERE %(wm_from)s < %(wm_to)s"
         ),
     )
+
+
+def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
+    flood = flood_rule()
     cfg = Cfg(safety_lag_s=0, max_alerts_per_tick=500)
     with psycopg.connect(migrated_db) as conn:
         stats = detect.evaluate_rule(conn, flood, cfg)
@@ -366,6 +375,51 @@ def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
         assert outbox[0][1]["context"]["rows"] == 501  # LIMIT cap+1
         # Watermark advanced despite the overflow.
         assert conn.execute("SELECT count(*) FROM detect.rule_state").fetchone()[0] == 1
+
+
+@pytest.mark.parametrize(
+    ("interval_s", "expected_outbox"), [(3600.0, 1), (0.0, 2)]
+)
+def test_a_permanent_flood_re_notifies_on_an_interval(
+    migrated_db, interval_s, expected_outbox
+):
+    """The meta-alert folds into one row by design, which used to mean the
+    second overflow arrived as a 'recurrence' and was never enqueued: a rule
+    flooding for a week notified once, on day one. Now it re-notifies on
+    CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL."""
+    flood = flood_rule()
+    cfg = Cfg(safety_lag_s=0, max_alerts_per_tick=500,
+              overflow_notify_interval_s=interval_s)
+    with psycopg.connect(migrated_db) as conn:
+        for _ in range(2):
+            assert detect.evaluate_rule(conn, flood, cfg)["overflow"]
+            conn.commit()
+
+        # Still one alert row either way — the dedup is the point.
+        assert conn.execute(
+            "SELECT count(*) FROM detect.alerts"
+        ).fetchone()[0] == 1
+        kinds = [
+            k for (k,) in conn.execute("SELECT kind FROM detect.outbox ORDER BY id")
+        ]
+        assert kinds == ["meta"] * expected_outbox
+        # The clock the rate-limit reads is stamped on every enqueue.
+        assert conn.execute(
+            "SELECT count(*) FROM detect.alerts WHERE last_notified_at IS NOT NULL"
+        ).fetchone()[0] == 1
+
+
+def test_alerts_below_min_severity_never_stamp_last_notified_at(migrated_db):
+    """The stamp has to follow the outbox row, not the upsert: a filtered-out
+    alert that stamped it would rate-limit a notification that never went."""
+    cfg = Cfg(safety_lag_s=0, min_severity="critical", max_alerts_per_tick=500)
+    with psycopg.connect(migrated_db) as conn:
+        detect.evaluate_rule(conn, flood_rule(), cfg)
+        conn.commit()
+        assert conn.execute("SELECT count(*) FROM detect.outbox").fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT last_notified_at FROM detect.alerts"
+        ).fetchone()[0] is None
 
 
 def test_absence_rule_fires_on_silence_and_folds(migrated_db):
