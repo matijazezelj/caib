@@ -25,7 +25,7 @@ import yaml
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from caib_core import heartbeat, notify
+from caib_core import heartbeat, notify, retention
 
 log = logging.getLogger("caib.detect")
 
@@ -48,7 +48,11 @@ ON CONFLICT (rule_id, dedup_key) DO UPDATE SET
   context     = EXCLUDED.context,
   status      = CASE WHEN detect.alerts.status = 'closed' THEN 'open'
                      ELSE detect.alerts.status END
-RETURNING id, (xmax = 0) AS is_new, first_seen, last_seen, event_count
+-- meta_due reads last_notified_at, which DO UPDATE never touches, so RETURNING
+-- hands back the value from before this upsert: when we last notified.
+RETURNING id, (xmax = 0) AS is_new, first_seen, last_seen, event_count,
+          (last_notified_at IS NULL
+           OR last_notified_at < now() - %(meta_interval)s::interval) AS meta_due
 """
 
 
@@ -78,16 +82,29 @@ class Cfg:
     tick_s: float = 15.0
     first_run_lookback_s: float = 3600.0
     notify_format: str = "json"
+    overflow_notify_interval_s: float = 3600.0
 
     @classmethod
     def from_env(cls) -> "Cfg":
         webhook_url = os.environ.get("CAIB_NOTIFY_WEBHOOK_URL", "")
+        min_severity = os.environ.get("CAIB_NOTIFY_MIN_SEVERITY", "info")
+        if min_severity not in SEVERITIES:
+            # Fail here, not at the first alert: _severity_notifies() would
+            # raise ValueError out of a rule's transaction hours later, and the
+            # engine would look healthy until something finally fired.
+            raise SystemExit(
+                f"CAIB_NOTIFY_MIN_SEVERITY={min_severity!r} is not one of "
+                f"{'|'.join(SEVERITIES)}"
+            )
         return cls(
             safety_lag_s=float(os.environ.get("CAIB_DETECT_SAFETY_LAG", "60")),
             max_alerts_per_tick=int(os.environ.get("CAIB_DETECT_MAX_ALERTS_PER_TICK", "500")),
             webhook_url=webhook_url,
-            min_severity=os.environ.get("CAIB_NOTIFY_MIN_SEVERITY", "info"),
+            min_severity=min_severity,
             tick_s=float(os.environ.get("CAIB_DETECT_TICK_S", "15")),
+            overflow_notify_interval_s=float(
+                os.environ.get("CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL", "3600")
+            ),
             notify_format=notify.resolve_format(
                 os.environ.get("CAIB_NOTIFY_FORMAT", ""), webhook_url
             ),
@@ -162,6 +179,11 @@ def _enqueue(conn: psycopg.Connection, alert_id: int, kind: str, payload: dict) 
         "INSERT INTO detect.outbox (alert_id, kind, payload) VALUES (%s, %s, %s)",
         (alert_id, kind, Jsonb(payload)),
     )
+    # Same transaction as the enqueue, so the meta rate-limit can never count a
+    # notification that got rolled back.
+    conn.execute(
+        "UPDATE detect.alerts SET last_notified_at = now() WHERE id = %s", (alert_id,)
+    )
 
 
 def _set_watermark(conn: psycopg.Connection, rule_id: str, wm_to: datetime.datetime) -> None:
@@ -188,11 +210,20 @@ def _upsert_alert(
             "context": Jsonb(context),
             "seen": row["last_event_time"],
             "event_count": event_count,
+            "meta_interval": f"{cfg.overflow_notify_interval_s} seconds",
         },
     ).fetchone()
-    alert_id, is_new, first_seen, last_seen, total = rec
-    kind = kind_new if is_new else "recurrence"
-    wants_notify = (kind != "recurrence") or rule.notify_recurrence
+    alert_id, is_new, first_seen, last_seen, total, meta_due = rec
+    if kind_new == "meta":
+        # A rule that overflows on every tick re-upserts the same 'overflow'
+        # dedup_key forever, so the fold below would label every overflow after
+        # the first a 'recurrence' and stay silent — a firehose you hear about
+        # once. Keep the kind and rate-limit the notification instead.
+        kind = "meta"
+        wants_notify = meta_due
+    else:
+        kind = kind_new if is_new else "recurrence"
+        wants_notify = is_new or rule.notify_recurrence
     if wants_notify and _severity_notifies(cfg, rule.severity):
         _enqueue(
             conn,
@@ -292,6 +323,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     cfg = Cfg.from_env()
+    retention_cfg = retention.Cfg.from_env()
     rules_dir = pathlib.Path(os.environ.get("CAIB_RULES_DIR", "detect/rules"))
     rules = load_rules(rules_dir)
     log.info("loaded %d rules from %s", len(rules), rules_dir)
@@ -311,6 +343,7 @@ def main(argv: list[str] | None = None) -> None:
             return
 
         next_run: dict[str, float] = {}
+        next_retention = 0.0  # sweep on the first tick, then hourly
         notify_backoff = 1.0
         while True:
             if reload_requested:
@@ -320,8 +353,16 @@ def main(argv: list[str] | None = None) -> None:
                     validate_rules(conn, fresh)
                     rules = fresh
                     log.info("reloaded %d rules", len(rules))
-                except (ValueError, SystemExit) as exc:
+                except SystemExit as exc:
+                    # validate_rules' own failure mode; it carries a message.
                     log.error("rule reload failed, keeping old set: %s", exc)
+                except Exception:
+                    # Anything else the rules directory can throw — a YAML
+                    # syntax error, an unreadable file, a bad type — must not
+                    # take detection down with it. Only ValueError and
+                    # SystemExit used to be caught, so a stray tab in a rule
+                    # file killed a running engine.
+                    log.exception("rule reload failed, keeping old set")
 
             now_mono = time.monotonic()
             for rule in rules:
@@ -354,6 +395,20 @@ def main(argv: list[str] | None = None) -> None:
                 if _connection_lost(conn):
                     raise
                 log.exception("notify drain failed")
+
+            if now_mono >= next_retention:
+                next_retention = now_mono + retention.SWEEP_INTERVAL_S
+                try:
+                    deleted = retention.sweep(conn, retention_cfg)
+                    if any(deleted.values()):
+                        log.info(
+                            "retention: %s",
+                            " ".join(f"{k}={v}" for k, v in deleted.items()),
+                        )
+                except psycopg.Error:
+                    if _connection_lost(conn):
+                        raise
+                    log.exception("retention sweep failed")
 
             heartbeat.beat(conn, "detect")
 
