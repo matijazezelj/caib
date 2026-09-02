@@ -73,6 +73,28 @@ make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
 | Dashboards | `grafana/grafana:12.4.9` | fully provisioned, read-only DB role |
 | Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` entrypoints |
 | Pollers | `caib-poller` (built here) | one image, `CAIB_MODULE` selects the module |
+| Agent query layer | `caib-agent-api` (built here) | optional; read-only HTTP/JSON + MCP, profile `agent-api` |
+
+## Agent query layer (optional)
+
+A read-only query surface for LLM agents — an HTTP/JSON API and an MCP stdio
+server over one shared query core.
+
+```sh
+docker compose --profile agent-api up -d
+curl -sH "Authorization: Bearer $CAIB_AGENT_API_TOKEN" \
+  'http://127.0.0.1:8088/v1/alerts/summary' | jq
+```
+
+Seven questions: `search_events`, `get_alerts`, `alert_summary`, `top_actors`,
+`actor_activity`, `module_health`, `list_rules`. It connects as `caib_agent_ro`,
+a role with `SELECT` on five tables and no write privilege at all — so it cannot
+see the raw `ingest.*` payloads, and there is no way to acknowledge or close an
+alert through it. Loopback-bound, bearer token required, and it refuses to start
+without one.
+
+Full reference, the grant rationale and how to point an MCP client at it:
+**[docs/AGENT_API.md](docs/AGENT_API.md)**.
 
 ## How this compares
 

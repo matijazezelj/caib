@@ -178,6 +178,42 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # Read-only query surface for agents (docs/AGENT_API.md). Off unless asked
+  # for: `docker compose --profile agent-api up -d`.
+  agent-api:
+    image: caib-agent-api:dev
+    build:
+      context: .
+      dockerfile: agentapi/Dockerfile
+    profiles: ["agent-api"]
+    environment:
+      # caib_agent_ro, NOT caib_app and NOT caib_ro. Read-only is a property of
+      # this role — SELECT on five tables, no write privilege, a 15s
+      # statement_timeout — not of the code in front of it.
+      CAIB_RO_PG_URL: postgresql://caib_agent_ro:${CAIB_AGENT_RO_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
+      # No default: an unset or empty token must fail the service, not open it.
+      CAIB_AGENT_API_TOKEN: ${CAIB_AGENT_API_TOKEN:?set in .env}
+      # 0.0.0.0 is the container's own namespace, not exposure — the published
+      # port below is what decides who can reach this, and it binds to
+      # CAIB_BIND_ADDR (loopback by default), same as Postgres and Grafana.
+      # Running the binary outside a container defaults to 127.0.0.1.
+      CAIB_AGENT_API_BIND: 0.0.0.0
+      CAIB_AGENT_API_PORT: 8088
+    ports:
+      - "${CAIB_BIND_ADDR:-127.0.0.1}:${CAIB_AGENT_API_PORT:-8088}:8088"
+    volumes:
+      - ./detect/rules:/app/detect/rules:ro
+    healthcheck:
+      test: ["CMD", "caib-agent-api", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.4.9
     environment:

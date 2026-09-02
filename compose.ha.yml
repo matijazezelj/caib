@@ -110,6 +110,11 @@ services:
     environment:
       CAIB_GRAFANA_DS_URL: haproxy:5001
 
+  # Read-only, so :5001 alongside Grafana rather than the primary-only :5000.
+  agent-api:
+    environment:
+      CAIB_RO_PG_URL: postgresql://caib_agent_ro:${CAIB_AGENT_RO_PASSWORD}@haproxy:5001/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
+
   poller-cloudflare-audit:
     environment:
       CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@haproxy:5000/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
