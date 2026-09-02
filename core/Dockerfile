@@ -9,7 +9,7 @@
 # way the uv pin is watched like every other image.
 FROM ghcr.io/astral-sh/uv:0.11.17 AS uv
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /app
@@ -31,7 +31,7 @@ COPY pollers/caib_pollers pollers/caib_pollers
 # relocatable to the runtime stage on its own.
 RUN uv sync --frozen --no-dev --no-editable --package caib-core
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 # uid/gid 10001: above the range distros hand out, so it cannot collide with a
