@@ -172,6 +172,16 @@ def test_cfg_from_env_reads_every_knob(monkeypatch):
     assert Cfg.from_env().notify_format == "json"
 
 
+@pytest.mark.parametrize("value", ["urgent", "HIGH", "", "3"])
+def test_bad_min_severity_fails_at_startup(monkeypatch, value):
+    """A severity outside the enum used to survive Cfg.from_env() and blow up in
+    SEVERITIES.index() at the first alert — hours or days later, inside a rule's
+    transaction, on a service that had looked healthy the whole time."""
+    monkeypatch.setenv("CAIB_NOTIFY_MIN_SEVERITY", value)
+    with pytest.raises(SystemExit, match="CAIB_NOTIFY_MIN_SEVERITY"):
+        Cfg.from_env()
+
+
 # --- evaluation -------------------------------------------------------------
 
 
