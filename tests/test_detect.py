@@ -3,6 +3,7 @@ import http.server
 import json
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import threading
@@ -287,6 +288,55 @@ def test_engine_exits_when_the_database_connection_dies(migrated_db, tmp_path):
                 (app_name,),
             )
         assert proc.wait(timeout=30) != 0, "detect kept running without a database"
+    finally:
+        proc.kill()
+
+
+def _wait_for_beat(conn, after=None, timeout_s=30.0):
+    """Next ops.heartbeat stamp from detect newer than `after`."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        row = conn.execute(
+            "SELECT beat_at FROM ops.heartbeat WHERE service = 'detect'"
+        ).fetchone()
+        if row and (after is None or row[0] > after):
+            return row[0]
+        time.sleep(0.1)
+    raise AssertionError("detect stopped beating")
+
+
+def test_sighup_with_an_unparseable_rule_keeps_the_old_set(migrated_db, tmp_path):
+    """The reload only caught ValueError/SystemExit, so a YAML syntax error in
+    the rules directory — the exact thing you SIGHUP after — killed the running
+    engine. It must log and keep evaluating the rules it already has."""
+    (tmp_path / "tick.yaml").write_text(
+        "id: x.tick\nmodule: x\ntitle: tick\nseverity: low\ninterval: 1\n"
+        "sql: SELECT 'k' AS dedup_key, '{}'::jsonb AS entity, '{}'::jsonb AS context,"
+        " now() AS last_event_time WHERE %(wm_from)s > %(wm_to)s\n"
+    )
+    env = {
+        **os.environ,
+        "CAIB_PG_URL": migrated_db,
+        "CAIB_RULES_DIR": str(tmp_path),
+        "CAIB_DETECT_TICK_S": "0.1",
+        "CAIB_DETECT_SAFETY_LAG": "0",
+        "CAIB_NOTIFY_WEBHOOK_URL": "",
+    }
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "from caib_core.detect import main; main()"],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        with psycopg.connect(migrated_db, autocommit=True) as conn:
+            beat = _wait_for_beat(conn)
+            (tmp_path / "broken.yaml").write_text("id: x.broken\n\tsql: [unclosed\n")
+            proc.send_signal(signal.SIGHUP)
+            beat = _wait_for_beat(conn, after=beat)  # survived the reload
+            _wait_for_beat(conn, after=beat)  # and kept ticking
+        assert proc.poll() is None, "detect died on a broken rule file"
+        proc.terminate()
+        _out, err = proc.communicate(timeout=30)
+        assert "rule reload failed, keeping old set" in err
     finally:
         proc.kill()
 
