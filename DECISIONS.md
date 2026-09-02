@@ -226,3 +226,83 @@ but never passed to the detect service; a bad `CAIB_NOTIFY_MIN_SEVERITY`
 crashing at first alert instead of at startup; SIGHUP reload killing the
 process on a YAML error; a permanently-flooding rule notifying only once; no
 dependabot; CI not building the Dockerfiles.
+
+## 2026-09-02 — reliability/ops backlog (the P1s from the 2026-08-25 review)
+
+The six items the P0 round left open, all fixed. Migration 0007 carries the
+whole schema side: three indexes, `detect.alerts.last_notified_at`,
+`detect.outbox.claimed_at`.
+
+**Nothing bounded the three plain tables.** `caib.events` is the only
+hypertable, so `add_retention_policy` covers it and stops there;
+`detect.outbox`, `detect.alerts` and `ingest.dead_letter` are plain heaps and
+grew forever — the outbox fastest, since every notification stays in it after
+delivery. New `caib_core.retention.sweep()`: delivered outbox rows past
+`CAIB_RETENTION_OUTBOX_DAYS` (30), **closed** alerts past
+`CAIB_RETENTION_ALERTS_CLOSED_DAYS` (90) by `last_seen`, dead-letter rows past
+`CAIB_RETENTION_DEAD_LETTER_DAYS` (30); any knob at 0 keeps everything. The
+detect loop calls it at most hourly on the monotonic clock, in its own
+transaction, behind the same `_connection_lost` re-raise as the drain;
+`caib-core retention --once` runs it by hand. Deliberate: open and acked alerts
+are never eligible at any age — deleting one drops an investigation *and*
+un-dedups the rule, so the next tick would re-open it as new and notify again.
+Undelivered outbox rows are likewise never touched. Each table gets its own
+transaction; the DELETEs are unbounded in row count, which is fine hourly but
+means a first sweep against a long-neglected outbox is one big transaction.
+
+**`CAIB_NOTIFY_FORMAT` was documented but not wired.** It had been in
+`.env.example` since the notifier learned Slack Block Kit, and
+`docker-compose.yml` never put it in detect's environment, so setting it did
+nothing and the format stayed whatever `resolve_format()` inferred from the
+URL. Passed now. `compose.ha.yml` needs no change — its `detect` block only
+overrides `CAIB_PG_URL` and compose merges environment maps. The general fix is
+the test: `tests/test_env_guards.py` asserts every
+`CAIB_DETECT_`/`CAIB_NOTIFY_`/`CAIB_RETENTION_` variable in `.env.example`
+reaches the container, so the next documented-but-unwired knob fails CI.
+
+**A bad `CAIB_NOTIFY_MIN_SEVERITY` waited for the first alert to crash.**
+`Cfg.from_env()` took it unchecked and only `SEVERITIES.index()` looked at it,
+so `HIGH` or `urgent` started cleanly, passed its healthcheck, and raised
+`ValueError` out of a rule's transaction whenever something finally fired.
+Validated in `from_env()` now: `SystemExit` at startup with the allowed values.
+
+**A YAML error in a rule file killed a running engine.** The SIGHUP reload
+caught only `ValueError` and `SystemExit`, and `yaml.YAMLError` is neither — so
+the failure mode of the exact thing SIGHUP exists for (you just edited a rule)
+was process death. Catches `Exception` and keeps the old rule set. The test
+spawns the engine, SIGHUPs it with a tab-indented rule file in the directory
+and watches `ops.heartbeat` keep advancing; verified it does fail against the
+old handler (heartbeat stops within seconds).
+
+**A permanently-flooding rule notified once, ever.** Overflow upserts a fixed
+`dedup_key='overflow'`, so only the first was `is_new`; every later one folded
+in as a `recurrence` and, with `notify_recurrence` off by default, was never
+enqueued. A rule flooding for a week therefore looked identical to silence
+after day one. Overflows keep `kind='meta'` and are rate-limited instead — at
+most one per rule per `CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL` (default 1h, 0 =
+every tick), off `detect.alerts.last_notified_at`, which `_enqueue` stamps in
+the same transaction as the outbox row (a rolled-back window can't consume the
+interval, and a severity-filtered alert never stamps it). The alert row still
+folds to one: the dedup was right, only the silence was wrong.
+
+**`notify.drain` POSTed inside its own open transaction.** It selected the
+batch `FOR UPDATE` and then POSTed each row without leaving that transaction,
+so a hung webhook held row locks and an idle-in-transaction connection for
+`TIMEOUT_S` per row — 500s for a full batch — blocking autovacuum on
+`detect.outbox` and holding a snapshot open across a failover. Restructured to
+claim → POST → settle: a short transaction stamps `claimed_at`, the POSTs run
+with nothing open, a second short transaction sets `sent_at` for what went and
+clears `claimed_at` for what didn't (so a 500 is retryable immediately, not
+after the timeout). Ordering, stop-at-first-failure and the `(sent, failed)`
+return are unchanged. The trade is explicit: rows are now in flight without a
+lock, so a sender that dies mid-POST leaves them claimed until `CLAIM_TIMEOUT`
+(5 min) makes them reclaimable. Delivery was and remains at-least-once — a POST
+that succeeds and then fails to record redelivers. `drain()` must be called
+with no caller transaction open, or psycopg makes its transactions savepoints
+and the POSTs are back inside one; the docstring says so and a test asserts
+`pg_stat_activity.state = 'idle'` during the POST.
+
+Not addressed, still open: the supply-chain/CI backlog (no dependabot, CI
+builds neither Dockerfile nor validates the compose files, images run as root
+and install from `pip install .` rather than `uv.lock`, `actions/checkout@v4`
+and `setup-uv@v5` on deprecated Node 20, no `SECURITY.md`).
