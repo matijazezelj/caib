@@ -208,8 +208,19 @@ make restore-test       # backup -> scratch restore -> license/marker/count asse
 ## Retention defaults
 
 Events: compressed after 7 days, dropped after 90 days. Continuous aggregates
-and alerts are kept much longer (cheap). Change post-install with
+are kept much longer (cheap). Change post-install with
 `remove_retention_policy` / `add_retention_policy` — do not edit migrations.
+
+`caib.events` is the only hypertable, so the Timescale policies stop there.
+The three plain tables that would otherwise grow forever are swept hourly by
+the detect loop (or on demand with `caib-core retention --once`), with these
+knobs in `.env` — `0` on any of them means keep forever:
+
+| Variable | Default | What it deletes |
+| --- | --- | --- |
+| `CAIB_RETENTION_OUTBOX_DAYS` | 30 | `detect.outbox` rows already delivered |
+| `CAIB_RETENTION_ALERTS_CLOSED_DAYS` | 90 | `detect.alerts` rows with `status = 'closed'`, by `last_seen`. Open and acked alerts are never deleted |
+| `CAIB_RETENTION_DEAD_LETTER_DAYS` | 30 | `ingest.dead_letter` rows, by `received_at` |
 
 ## Licensing
 

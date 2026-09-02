@@ -25,7 +25,7 @@ import yaml
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from caib_core import heartbeat, notify
+from caib_core import heartbeat, notify, retention
 
 log = logging.getLogger("caib.detect")
 
@@ -292,6 +292,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     cfg = Cfg.from_env()
+    retention_cfg = retention.Cfg.from_env()
     rules_dir = pathlib.Path(os.environ.get("CAIB_RULES_DIR", "detect/rules"))
     rules = load_rules(rules_dir)
     log.info("loaded %d rules from %s", len(rules), rules_dir)
@@ -311,6 +312,7 @@ def main(argv: list[str] | None = None) -> None:
             return
 
         next_run: dict[str, float] = {}
+        next_retention = 0.0  # sweep on the first tick, then hourly
         notify_backoff = 1.0
         while True:
             if reload_requested:
@@ -354,6 +356,20 @@ def main(argv: list[str] | None = None) -> None:
                 if _connection_lost(conn):
                     raise
                 log.exception("notify drain failed")
+
+            if now_mono >= next_retention:
+                next_retention = now_mono + retention.SWEEP_INTERVAL_S
+                try:
+                    deleted = retention.sweep(conn, retention_cfg)
+                    if any(deleted.values()):
+                        log.info(
+                            "retention: %s",
+                            " ".join(f"{k}={v}" for k, v in deleted.items()),
+                        )
+                except psycopg.Error:
+                    if _connection_lost(conn):
+                        raise
+                    log.exception("retention sweep failed")
 
             heartbeat.beat(conn, "detect")
 
