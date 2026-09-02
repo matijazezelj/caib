@@ -131,7 +131,7 @@ dependencies = [
 requires-dist = [
     { name = "caib-core", editable = "core" },
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "mcp", specifier = ">=1.2" },
+    { name = "mcp", specifier = ">=2.1" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
