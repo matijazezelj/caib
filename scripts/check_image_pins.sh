@@ -24,8 +24,13 @@ cd "$(dirname "$0")/.."
 # regenerating README screenshots, never part of a running stack.
 UNPINNED_OK="grafana/grafana-image-renderer"
 
-# Every copy of these repositories must carry the same tag.
-MUST_AGREE="timescale/timescaledb"
+# Every copy of these repositories must carry the same tag. The two Python
+# images are built from the same uv.lock by the same uv against the same
+# interpreter; letting the copies drift apart is how you get two images that
+# disagree about what "the pinned dependencies" means.
+MUST_AGREE="timescale/timescaledb
+ghcr.io/astral-sh/uv
+python"
 
 # --- collect ------------------------------------------------------------
 # One "<file>\t<repository>\t<tag>" row per reference, tag "-" when absent.
