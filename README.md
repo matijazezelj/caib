@@ -221,7 +221,7 @@ Docker).
 ## Release confidence checklist
 
 ```sh
-make test               # 70 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
+make test               # 189 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
 make bench              # measured ingest/compression/query numbers -> bench/results/
 make ha-failover-test   # kills the primary under write load; asserts zero loss
 make restore-test       # backup -> scratch restore -> license/marker/count assertions
