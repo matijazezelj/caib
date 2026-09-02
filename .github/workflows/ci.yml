@@ -8,11 +8,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      # Pinned to full commit SHAs: setup-uv stopped publishing floating
+      # major/minor tags at v8, and a SHA is the only ref a tag cannot be
+      # moved out from under. Bump the SHA and the trailing comment together.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uv run ruff check .
 
   test:
+    needs: lint
     runs-on: ubuntu-latest
     services:
       timescaledb:
@@ -31,7 +35,42 @@ jobs:
     env:
       CAIB_TEST_PG_URL: postgresql://postgres:ci@localhost:5432/caib
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uv sync
       - run: uv run pytest -q
+
+  # Runs alongside `test`: nothing here needs the database, and a broken
+  # Dockerfile or compose file used to reach main untouched by CI.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Image pins are tagged and agree with each other
+        run: bash scripts/check_image_pins.sh
+
+      # Build only — nothing is pushed, and nothing here has a registry to
+      # push to. The tags exist so a failure names the image that broke.
+      - name: Build caib-core
+        run: docker build -f core/Dockerfile -t caib-core:ci .
+      - name: Build caib-poller
+        run: docker build -f pollers/Dockerfile -t caib-poller:ci .
+      # Context is ./backup, matching compose.backup.yml.
+      - name: Build caib-timescaledb-backup
+        run: docker build -t caib-timescaledb-backup:ci ./backup
+
+      # Every `${VAR:?}` in the compose files has to resolve or `config` fails,
+      # so generate the same .env a first run would get.
+      - name: Generate .env
+        run: bash scripts/init_env.sh
+
+      # `--profile '*'` pulls the per-module services (pollers, vector) into
+      # the render; without it they are silently skipped and never validated.
+      - name: Validate the compose files
+        run: |
+          set -eux
+          docker compose --profile '*' -f docker-compose.yml config -q
+          for overlay in compose.*.yml; do
+            docker compose --profile '*' -f docker-compose.yml -f "$overlay" config -q
+          done

@@ -222,6 +222,26 @@ knobs in `.env` — `0` on any of them means keep forever:
 | `CAIB_RETENTION_ALERTS_CLOSED_DAYS` | 90 | `detect.alerts` rows with `status = 'closed'`, by `last_seen`. Open and acked alerts are never deleted |
 | `CAIB_RETENTION_DEAD_LETTER_DAYS` | 30 | `ingest.dead_letter` rows, by `received_at` |
 
+## Releases
+
+There are none yet — `main` is the only thing to run, and
+[CHANGELOG.md](CHANGELOG.md) keeps everything under `Unreleased`. Report
+vulnerabilities per [SECURITY.md](SECURITY.md).
+
+The first tag will be cut once the dogfooding round in `CLAUDE.md` has been
+through a real deployment. When it is, it is signed:
+
+```sh
+# 1. move the Unreleased section of CHANGELOG.md under a `## [0.1.0] - <date>`
+#    heading and open a fresh empty Unreleased above it
+# 2. green CI on main, plus the release confidence checklist above
+git tag -s v0.1.0 -m "caib 0.1.0"
+git push origin v0.1.0
+```
+
+`-s` needs a signing key configured (`git config user.signingkey`); an unsigned
+tag on a security tool is not worth much.
+
 ## Licensing
 
 CAIB is licensed under [Apache-2.0](LICENSE).
