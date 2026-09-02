@@ -1,7 +1,7 @@
 # Build from the repo root: docker build -f pollers/Dockerfile .
 #
 # Same two-stage shape as core/Dockerfile — see the comments there.
-FROM ghcr.io/astral-sh/uv:0.11.17 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.9 AS uv
 
 FROM python:3.12-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
