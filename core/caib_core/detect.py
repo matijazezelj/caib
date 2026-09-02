@@ -82,11 +82,20 @@ class Cfg:
     @classmethod
     def from_env(cls) -> "Cfg":
         webhook_url = os.environ.get("CAIB_NOTIFY_WEBHOOK_URL", "")
+        min_severity = os.environ.get("CAIB_NOTIFY_MIN_SEVERITY", "info")
+        if min_severity not in SEVERITIES:
+            # Fail here, not at the first alert: _severity_notifies() would
+            # raise ValueError out of a rule's transaction hours later, and the
+            # engine would look healthy until something finally fired.
+            raise SystemExit(
+                f"CAIB_NOTIFY_MIN_SEVERITY={min_severity!r} is not one of "
+                f"{'|'.join(SEVERITIES)}"
+            )
         return cls(
             safety_lag_s=float(os.environ.get("CAIB_DETECT_SAFETY_LAG", "60")),
             max_alerts_per_tick=int(os.environ.get("CAIB_DETECT_MAX_ALERTS_PER_TICK", "500")),
             webhook_url=webhook_url,
-            min_severity=os.environ.get("CAIB_NOTIFY_MIN_SEVERITY", "info"),
+            min_severity=min_severity,
             tick_s=float(os.environ.get("CAIB_DETECT_TICK_S", "15")),
             notify_format=notify.resolve_format(
                 os.environ.get("CAIB_NOTIFY_FORMAT", ""), webhook_url
