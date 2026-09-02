@@ -306,3 +306,116 @@ Not addressed, still open: the supply-chain/CI backlog (no dependabot, CI
 builds neither Dockerfile nor validates the compose files, images run as root
 and install from `pip install .` rather than `uv.lock`, `actions/checkout@v4`
 and `setup-uv@v5` on deprecated Node 20, no `SECURITY.md`).
+
+## 2026-09-02 — supply chain and CI (todo #7)
+
+The whole item, closed. Nothing here changes runtime behaviour; the two Python
+images are rebuilt from the inside out and verified against a live stack.
+
+**Actions pinned to SHAs, not tags.** `actions/checkout@v4` and
+`setup-uv@v5` were both on the deprecated Node 20 runtime. Now
+`actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1) and
+`astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d` (v10.0.1), both
+node24, each with the version as a trailing comment. Both tags are lightweight,
+so `gh api .../git/ref/tags/<tag>` returns the commit directly. SHA pinning is
+not optional here: setup-uv stopped publishing floating major/minor tags at v8
+precisely because a movable tag is a supply-chain hole, so `@v10` does not
+exist. Checked the majors we skipped for behaviour changes that touch us —
+v10's cache-poisoning default only fires on `pull_request_target`,
+`workflow_run` and `release`, none of which this workflow uses.
+
+**Dependabot covers more than expected — verified, not assumed.** The obvious
+reading is that the `docker` ecosystem watches Dockerfiles and the six stack
+images in the compose files go unwatched. That is half right. `docker`'s
+fetcher matches `/dockerfile|containerfile/i` only, but there is a separate
+`docker-compose` ecosystem whose fetcher matches
+`/(docker-)?compose(-[\w]+)?(?>\.[\w-]+)?\.ya?ml/i` — which covers all four of
+`docker-compose.yml`, `compose.backup.yml`, `compose.ha.yml` and
+`compose.render.yml`. Both ecosystem names, and the `uv` one, were read out of
+`dependabot-core` (`common/lib/dependabot/config/file.rb`,
+`docker/lib/dependabot/*/file_fetcher.rb`) rather than taken from memory. So
+four entries: `github-actions`, `docker` on `/core /pollers /backup`,
+`docker-compose` on `/`, `uv` on `/` with minor+patch grouped. The locally
+built `caib-*` images are ignored — there is no registry behind them.
+
+**Two gaps dependabot cannot close, hence `scripts/check_image_pins.sh`.**
+First: the `timescale/timescaledb` service container in
+`.github/workflows/ci.yml`. The `github-actions` ecosystem parses `uses:` refs
+and nothing else, so the image the test job actually runs against is in no
+ecosystem's scope — and since CI asserts the TSL license against that build, a
+stale pin there means asserting it about the wrong version. Second: agreement
+between copies. That same image is pinned in `docker-compose.yml`,
+`backup/Dockerfile` and the workflow; dependabot opens one PR per file and is
+perfectly happy to leave them on three different tags. The script inventories
+every `image:`, `FROM` and `COPY --from=` in the repo and exits non-zero on an
+untagged or `:latest` image, or on a disagreement within
+`timescale/timescaledb`, `ghcr.io/astral-sh/uv` or `python`. The render
+sidecar is allowlisted as deliberately floating — it is a throwaway used to
+regenerate screenshots, never part of a running stack. Both failure paths were
+exercised against a scratch compose file before the script was committed.
+
+**CI builds the images and validates the compose files.** New `build` job:
+`docker build` all three (no push), then `docker compose config -q` on the base
+file and on each `compose.*.yml` overlay combined with it, against a `.env`
+from `scripts/init_env.sh`. `--profile '*'` is load-bearing — the per-module
+poller and vector services sit behind profiles, and without it `config`
+renders the file without them and validates nothing about them. `test` now
+needs `lint`; `build` has no `needs` and runs beside both.
+
+**Images build from `uv.lock` and run as uid 10001.** `pip install .` against
+the member `pyproject.toml` meant the lockfile that CI and the tests resolve
+against had no bearing on what shipped in a container: pip re-resolved every
+`>=` on every build, so an image built today and one built last month were
+different software with the same tag. Both Dockerfiles are two stages now — a
+builder that runs `uv sync --frozen --no-dev --no-editable --package <member>`
+over the whole workspace, and a runtime stage that takes only `/app/.venv`.
+`--frozen` makes a stale lock a build failure rather than a silent
+re-resolution, which is the entire point. `--no-editable` is what makes the
+venv relocatable: uv installs workspace members editable by default, and an
+editable install would have left the runtime image's `.pth` pointing at a
+source tree that is not there.
+
+uv itself comes in as `FROM ghcr.io/astral-sh/uv:0.11.17 AS uv` and is then
+copied out, rather than the shorter `COPY --from=ghcr.io/astral-sh/uv:0.11.17`
+the uv docs suggest. Deliberate: dependabot's docker parser matches on
+`FROM` lines only (`docker/lib/dependabot/docker/file_parser.rb`), so the
+documented form would have added a seventh pinned image that nothing watches.
+This adds one image to track and one build stage; the alternative was an
+unpinned `pip install uv`, which would defeat the exercise.
+
+Non-root was cheap because nothing writes: `caib_core` and `caib_pollers` have
+no `open(..., 'w')`, no tempfiles, no state directory. So `/app` stays
+root-owned and read-only to `caib` and nothing is chowned. uid/gid 10001 is
+above the range distros allocate, so it cannot collide with a host account
+through a bind mount. `ENV PATH=/app/.venv/bin:$PATH` is what keeps the
+exec-form `ENTRYPOINT` and the compose `["CMD", "caib-core", "healthcheck",
+...]` resolving — Docker resolves an exec-form binary against the image's PATH.
+**No healthcheck or entrypoint tweak was needed**; the read-only bind mounts
+(`./db/migrations`, `./detect/rules`) are world-readable and non-root reads
+them fine.
+
+Verified against a real stack, not just a build: `make up` brings
+timescaledb, loader, detect and grafana to healthy and migrate to `Exited (0)`
+— 7 migrations applied under `caib_app`, 22 rules loaded from the bind mount,
+the four dead-man rules firing. `docker compose run poller-cloudflare-audit
+--once` reaches the Cloudflare API and fails only on the absent token, so the
+wheel-installed package and psycopg both work as uid 10001. `make down` clean.
+
+`backup/Dockerfile` is untouched: it is the TimescaleDB image with pgbackrest
+added, it has no Python packaging to move onto the lock, and its entrypoint has
+to start as root before dropping to `postgres` itself.
+
+**`SECURITY.md` and `CHANGELOG.md`.** The security policy is deliberately
+unflattering — supported versions is "main, there are no tags", the response
+promise is an acknowledgement within 7 days and explicitly not a fix timeline,
+and the largest section lists what CAIB does not do (no auth or TLS in front of
+Grafana or Postgres beyond the loopback bind, secrets as container env vars, no
+multi-tenancy, healthchecks that page nobody) so that those arrive as
+documented behaviour rather than as four separate reports. The changelog keeps
+everything under `Unreleased`, grouped by PR; the initial build is not
+itemised, because that is what this file is for. README gained a Releases
+section with the `git tag -s v0.1.0` recipe. **No tag was created** — the first
+one waits on the dogfooding round.
+
+Left open: the repo is still private, and the `-s` recipe assumes a signing key
+that is not configured yet. Neither is a keyboard problem.
