@@ -3,6 +3,7 @@ import http.server
 import json
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import threading
@@ -150,6 +151,7 @@ def test_cfg_from_env_reads_every_knob(monkeypatch):
         "CAIB_DETECT_SAFETY_LAG", "CAIB_DETECT_MAX_ALERTS_PER_TICK",
         "CAIB_NOTIFY_WEBHOOK_URL", "CAIB_NOTIFY_MIN_SEVERITY",
         "CAIB_DETECT_TICK_S", "CAIB_NOTIFY_FORMAT",
+        "CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -157,19 +159,32 @@ def test_cfg_from_env_reads_every_knob(monkeypatch):
     assert (default.safety_lag_s, default.max_alerts_per_tick) == (60.0, 500)
     assert (default.webhook_url, default.min_severity) == ("", "info")
     assert (default.tick_s, default.notify_format) == (15.0, "json")
+    assert default.overflow_notify_interval_s == 3600.0
 
     monkeypatch.setenv("CAIB_DETECT_SAFETY_LAG", "0")
     monkeypatch.setenv("CAIB_DETECT_MAX_ALERTS_PER_TICK", "7")
     monkeypatch.setenv("CAIB_NOTIFY_WEBHOOK_URL", "https://hooks.slack.com/services/T/B/X")
     monkeypatch.setenv("CAIB_NOTIFY_MIN_SEVERITY", "high")
     monkeypatch.setenv("CAIB_DETECT_TICK_S", "0.5")
+    monkeypatch.setenv("CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL", "900")
     cfg = Cfg.from_env()
     assert (cfg.safety_lag_s, cfg.max_alerts_per_tick, cfg.tick_s) == (0.0, 7, 0.5)
+    assert cfg.overflow_notify_interval_s == 900.0
     assert cfg.min_severity == "high"
     # A Slack webhook auto-selects Block Kit; an explicit format still wins.
     assert cfg.notify_format == "slack"
     monkeypatch.setenv("CAIB_NOTIFY_FORMAT", "json")
     assert Cfg.from_env().notify_format == "json"
+
+
+@pytest.mark.parametrize("value", ["urgent", "HIGH", "", "3"])
+def test_bad_min_severity_fails_at_startup(monkeypatch, value):
+    """A severity outside the enum used to survive Cfg.from_env() and blow up in
+    SEVERITIES.index() at the first alert — hours or days later, inside a rule's
+    transaction, on a service that had looked healthy the whole time."""
+    monkeypatch.setenv("CAIB_NOTIFY_MIN_SEVERITY", value)
+    with pytest.raises(SystemExit, match="CAIB_NOTIFY_MIN_SEVERITY"):
+        Cfg.from_env()
 
 
 # --- evaluation -------------------------------------------------------------
@@ -281,8 +296,58 @@ def test_engine_exits_when_the_database_connection_dies(migrated_db, tmp_path):
         proc.kill()
 
 
-def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
-    flood = Rule(
+def _wait_for_beat(conn, after=None, timeout_s=30.0):
+    """Next ops.heartbeat stamp from detect newer than `after`."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        row = conn.execute(
+            "SELECT beat_at FROM ops.heartbeat WHERE service = 'detect'"
+        ).fetchone()
+        if row and (after is None or row[0] > after):
+            return row[0]
+        time.sleep(0.1)
+    raise AssertionError("detect stopped beating")
+
+
+def test_sighup_with_an_unparseable_rule_keeps_the_old_set(migrated_db, tmp_path):
+    """The reload only caught ValueError/SystemExit, so a YAML syntax error in
+    the rules directory — the exact thing you SIGHUP after — killed the running
+    engine. It must log and keep evaluating the rules it already has."""
+    (tmp_path / "tick.yaml").write_text(
+        "id: x.tick\nmodule: x\ntitle: tick\nseverity: low\ninterval: 1\n"
+        "sql: SELECT 'k' AS dedup_key, '{}'::jsonb AS entity, '{}'::jsonb AS context,"
+        " now() AS last_event_time WHERE %(wm_from)s > %(wm_to)s\n"
+    )
+    env = {
+        **os.environ,
+        "CAIB_PG_URL": migrated_db,
+        "CAIB_RULES_DIR": str(tmp_path),
+        "CAIB_DETECT_TICK_S": "0.1",
+        "CAIB_DETECT_SAFETY_LAG": "0",
+        "CAIB_NOTIFY_WEBHOOK_URL": "",
+    }
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "from caib_core.detect import main; main()"],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        with psycopg.connect(migrated_db, autocommit=True) as conn:
+            beat = _wait_for_beat(conn)
+            (tmp_path / "broken.yaml").write_text("id: x.broken\n\tsql: [unclosed\n")
+            proc.send_signal(signal.SIGHUP)
+            beat = _wait_for_beat(conn, after=beat)  # survived the reload
+            _wait_for_beat(conn, after=beat)  # and kept ticking
+        assert proc.poll() is None, "detect died on a broken rule file"
+        proc.terminate()
+        _out, err = proc.communicate(timeout=30)
+        assert "rule reload failed, keeping old set" in err
+    finally:
+        proc.kill()
+
+
+def flood_rule() -> Rule:
+    """A rule that returns 600 rows every time it is evaluated."""
+    return Rule(
         id="x.flood", module="x", title="flood", severity="low", interval_s=60,
         sql=(
             "SELECT i::text AS dedup_key, '{}'::jsonb AS entity,"
@@ -291,6 +356,10 @@ def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
             " WHERE %(wm_from)s < %(wm_to)s"
         ),
     )
+
+
+def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
+    flood = flood_rule()
     cfg = Cfg(safety_lag_s=0, max_alerts_per_tick=500)
     with psycopg.connect(migrated_db) as conn:
         stats = detect.evaluate_rule(conn, flood, cfg)
@@ -306,6 +375,51 @@ def test_rate_cap_produces_exactly_one_meta_alert(migrated_db):
         assert outbox[0][1]["context"]["rows"] == 501  # LIMIT cap+1
         # Watermark advanced despite the overflow.
         assert conn.execute("SELECT count(*) FROM detect.rule_state").fetchone()[0] == 1
+
+
+@pytest.mark.parametrize(
+    ("interval_s", "expected_outbox"), [(3600.0, 1), (0.0, 2)]
+)
+def test_a_permanent_flood_re_notifies_on_an_interval(
+    migrated_db, interval_s, expected_outbox
+):
+    """The meta-alert folds into one row by design, which used to mean the
+    second overflow arrived as a 'recurrence' and was never enqueued: a rule
+    flooding for a week notified once, on day one. Now it re-notifies on
+    CAIB_DETECT_OVERFLOW_NOTIFY_INTERVAL."""
+    flood = flood_rule()
+    cfg = Cfg(safety_lag_s=0, max_alerts_per_tick=500,
+              overflow_notify_interval_s=interval_s)
+    with psycopg.connect(migrated_db) as conn:
+        for _ in range(2):
+            assert detect.evaluate_rule(conn, flood, cfg)["overflow"]
+            conn.commit()
+
+        # Still one alert row either way — the dedup is the point.
+        assert conn.execute(
+            "SELECT count(*) FROM detect.alerts"
+        ).fetchone()[0] == 1
+        kinds = [
+            k for (k,) in conn.execute("SELECT kind FROM detect.outbox ORDER BY id")
+        ]
+        assert kinds == ["meta"] * expected_outbox
+        # The clock the rate-limit reads is stamped on every enqueue.
+        assert conn.execute(
+            "SELECT count(*) FROM detect.alerts WHERE last_notified_at IS NOT NULL"
+        ).fetchone()[0] == 1
+
+
+def test_alerts_below_min_severity_never_stamp_last_notified_at(migrated_db):
+    """The stamp has to follow the outbox row, not the upsert: a filtered-out
+    alert that stamped it would rate-limit a notification that never went."""
+    cfg = Cfg(safety_lag_s=0, min_severity="critical", max_alerts_per_tick=500)
+    with psycopg.connect(migrated_db) as conn:
+        detect.evaluate_rule(conn, flood_rule(), cfg)
+        conn.commit()
+        assert conn.execute("SELECT count(*) FROM detect.outbox").fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT last_notified_at FROM detect.alerts"
+        ).fetchone()[0] is None
 
 
 def test_absence_rule_fires_on_silence_and_folds(migrated_db):
@@ -426,8 +540,11 @@ def test_failed_post_stays_unsent_and_retries(migrated_db, webhook_url):
         sent, failed = notify.drain(conn, webhook_url)
         conn.commit()
         assert (sent, failed) == (0, 1)
+        # Unsent and unclaimed: a webhook that answered 500 is a failure the
+        # sender saw, so the row is retryable now, not after CLAIM_TIMEOUT.
         assert conn.execute(
-            "SELECT count(*) FROM detect.outbox WHERE sent_at IS NULL"
+            "SELECT count(*) FROM detect.outbox"
+            " WHERE sent_at IS NULL AND claimed_at IS NULL"
         ).fetchone()[0] == 1
 
         Webhook.fail = False
@@ -435,6 +552,84 @@ def test_failed_post_stays_unsent_and_retries(migrated_db, webhook_url):
         conn.commit()
         assert (sent, failed) == (1, 0)
     assert len(Webhook.received) == 1
+
+
+def test_a_sender_that_dies_mid_post_leaves_rows_reclaimable(
+    migrated_db, webhook_url, monkeypatch
+):
+    """The POST now happens outside the claim transaction, so nothing holds a
+    lock on a row that is in flight. The price is that a sender crashing
+    between the claim and the settle leaves the row claimed — it has to come
+    back on its own once the claim ages out, or the notification is lost."""
+    rule = root_login_rule()
+    with psycopg.connect(migrated_db) as conn:
+        land_and_load(conn, [root_login_envelope(0)])
+        detect.evaluate_rule(conn, rule, CFG)
+        conn.commit()
+
+        def die(url, payload):
+            raise RuntimeError("sender died mid-POST")
+
+        monkeypatch.setattr(notify, "_post", die)
+        with pytest.raises(RuntimeError):
+            notify.drain(conn, webhook_url)
+        conn.commit()
+        assert conn.execute(
+            "SELECT claimed_at IS NOT NULL, sent_at IS NOT NULL FROM detect.outbox"
+        ).fetchone() == (True, False)
+
+        # A fresh claim is left alone: the sender might still be mid-POST.
+        monkeypatch.undo()
+        assert notify.drain(conn, webhook_url) == (0, 0)
+        conn.commit()
+        assert Webhook.received == []
+
+        # An aged one is fair game.
+        conn.execute(
+            "UPDATE detect.outbox SET claimed_at = now() - interval '10 minutes'"
+        )
+        conn.commit()
+        assert notify.drain(conn, webhook_url) == (1, 0)
+        conn.commit()
+        assert conn.execute(
+            "SELECT count(*) FROM detect.outbox WHERE sent_at IS NULL"
+        ).fetchone()[0] == 0
+    assert len(Webhook.received) == 1
+
+
+def test_drain_holds_no_transaction_while_posting(migrated_db, webhook_url):
+    """The webhook POST used to run inside the transaction that held FOR UPDATE
+    on the batch, so a slow endpoint pinned an idle-in-transaction connection
+    for TIMEOUT_S per row. Assert from the server's side that it doesn't."""
+    rule = root_login_rule()
+    app_name = "caib_notify_drain"
+    seen: list[str] = []
+    with (
+        psycopg.connect(f"{migrated_db}?application_name={app_name}") as conn,
+        psycopg.connect(migrated_db, autocommit=True) as observer,
+    ):
+        land_and_load(conn, [root_login_envelope(0)])
+        detect.evaluate_rule(conn, rule, CFG)
+        conn.commit()
+
+        real_post = notify._post
+
+        def watched_post(url, payload):
+            seen.append(
+                observer.execute(
+                    "SELECT state FROM pg_stat_activity WHERE application_name = %s",
+                    (app_name,),
+                ).fetchone()[0]
+            )
+            return real_post(url, payload)
+
+        notify._post = watched_post
+        try:
+            assert notify.drain(conn, webhook_url) == (1, 0)
+        finally:
+            notify._post = real_post
+        conn.commit()
+    assert seen == ["idle"], f"drain POSTed with the connection {seen}"
 
 
 def test_blank_url_drains_without_sending(migrated_db):
