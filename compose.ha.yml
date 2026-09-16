@@ -12,7 +12,7 @@ services:
     profiles: ["single-node-disabled"]
 
   etcd:
-    image: quay.io/coreos/etcd:v3.6.4
+    image: quay.io/coreos/etcd:v3.7.1
     command:
       - etcd
       - --name=etcd0
@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
 
   spilo1: &spilo
-    image: timescale/timescaledb-ha:pg18.4-ts2.29.2
+    image: timescale/timescaledb-ha:pg18.6-ts2.30.0
     command: ["patroni", "/etc/patroni.yml"]
     environment: &spilo_env
       PATRONI_NAME: spilo1
@@ -76,7 +76,7 @@ services:
       - "127.0.0.1:8010:8008"
 
   haproxy:
-    image: haproxy:3.2-alpine
+    image: haproxy:3.4-alpine
     volumes:
       - ./ha/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
