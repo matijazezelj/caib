@@ -753,3 +753,23 @@ connect-retry only covers connection failures. Reproduced on **3.2** as well as
 only after `rise` checks pass. Four consecutive restarts on 3.4 then all
 passed, each with migrate logging "database not ready" three times before
 reaching the real primary.
+
+## 2026-09-16 — Python 3.14 in the images, and CI tests what ships
+
+Dependabot's grouped PR (#31, earlier #6/#12/#29) moved the three Dockerfiles
+from `python:3.12-slim` to `3.14-slim`. The bump alone would have made CI less
+honest: the test job runs `uv sync` on whatever Python the runner has (3.12 on
+ubuntu-latest), so images would ship an interpreter CI never ran. Added
+`.python-version` (3.14), which uv reads for `uv sync`/`uv run` locally and in
+CI, without touching the workflow file. `requires-python >=3.12` and ruff's
+`py312` target are unchanged: the code stays 3.12-compatible, only the
+interpreter we test and ship moves.
+
+Checked: every compiled dependency in `uv.lock` has cp314 manylinux wheels for
+x86_64 and aarch64 (psycopg-binary, pydantic-core, pyyaml, cffi, rpds-py;
+cryptography via abi3), so slim images never fall back to a source build — in
+the built image `psycopg.pq.__impl__` is `binary`. All three images build; a
+throwaway compose stack on 3.14 came up healthy (loader, detect, agent-api),
+seeded demo data, and answered `/v1` and `/mcp`. The local test suite ran on
+3.14.7 all session (202 passing, excluding the three Vector e2e tests this dev
+host cannot network).

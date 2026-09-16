@@ -3,7 +3,7 @@
 # Same two-stage shape as core/Dockerfile — see the comments there.
 FROM ghcr.io/astral-sh/uv:0.12.15 AS uv
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY pollers/caib_pollers pollers/caib_pollers
 
 RUN uv sync --frozen --no-dev --no-editable --package caib-pollers
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 RUN groupadd --system --gid 10001 caib \

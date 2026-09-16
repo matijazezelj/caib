@@ -65,7 +65,9 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 
 ## Environment facts
 
-- Python 3.12 target via `uv` (workspace: root + `core/` + `pollers/`).
+- Python: images, CI and dev run 3.14 (`.python-version`, Dockerfiles); code stays
+  3.12-compatible (`requires-python >=3.12`, ruff `py312`). uv workspace: root +
+  `core/` + `pollers/` + `agentapi/`.
   `uv run pytest -q` / `uv run ruff check .` — ruff is strict; run it before
   every commit. Tests need Docker (throwaway `timescale/timescaledb:2.29.2-pg18`
   container per session; CI uses a service container).
