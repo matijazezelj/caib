@@ -18,6 +18,23 @@ are not itemised here; what follows is what changed after it, by pull request.
   pins dev and CI to 3.14 so the tests run on the interpreter the images ship;
   code stays compatible with 3.12.
 
+### HA overlay
+
+- `coreos/etcd` v3.7.1 (#9), `haproxy` 3.4-alpine (#8),
+  `timescale/timescaledb-ha` pg18.6-ts2.30.0. `make ha-failover-test` passes on
+  the upgraded cluster, before and after the extension update.
+- Fixed: `make ha-up` over an existing cluster could fail in migrate with
+  "read-only transaction" — HAProxy routed :5000 to replicas for ~9s after
+  starting. Servers now start `init-state down`.
+
+### Grafana 13.2.2
+
+- `grafana/grafana` 13.2.2 (supersedes #10, #28). Verified on a running demo
+  stack: provisioning, datasource and all four README dashboards render; the
+  screenshots are re-rendered on 13.2.2.
+- `compose.render.yml` passes a renderer token (`CAIB_RENDERER_TOKEN`), which
+  Grafana 13 requires to render.
+
 ### Dependency batch (2026-09-16)
 
 - Python: `mcp` 2.2.0, `psycopg`/`psycopg-binary` 3.3.5 (and the `>=3.3.5`

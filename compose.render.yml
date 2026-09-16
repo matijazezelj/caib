@@ -5,12 +5,20 @@
 #   curl -u admin:$CAIB_GRAFANA_ADMIN_PASSWORD \
 #     "http://localhost:3000/render/d/caib-overview/x?kiosk&theme=dark&width=1600&height=1400&tz=UTC" \
 #     -o docs/img/overview.png
+#
+# Grafana 13 refuses to call a renderer without a shared token (the renderer
+# plugin is gone; the remote service authenticates with X-Auth-Token). The
+# renderer publishes no port — it is reachable only on the compose network —
+# so the default below guards nothing that matters; override it if you publish.
 services:
   renderer:
     image: grafana/grafana-image-renderer:latest
+    environment:
+      AUTH_TOKEN: ${CAIB_RENDERER_TOKEN:-caib-local-render}
     restart: unless-stopped
 
   grafana:
     environment:
       GF_RENDERING_SERVER_URL: http://renderer:8081/render
       GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+      GF_RENDERING_RENDERER_TOKEN: ${CAIB_RENDERER_TOKEN:-caib-local-render}
