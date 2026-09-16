@@ -716,3 +716,40 @@ it and the renderer's `AUTH_TOKEN` from `CAIB_RENDERER_TOKEN` (default
 the compose network). Also noted from the 13.0 upgrade guide, none affecting
 CAIB: dashboards move to unified storage on startup, numeric-id datasource APIs
 are off by default, `grafana-cli`/`grafana-server` are gone, gzip is on.
+
+## 2026-09-16 — HA overlay: etcd 3.7.1, HAProxy 3.4, timescaledb-ha pg18.6-ts2.30.0; HAProxy init-state
+
+Tested as an operator would meet it: `make ha-up` on the old versions (etcd
+3.6.4, HAProxy 3.2, `timescaledb-ha:pg18.4-ts2.29.2`) until one primary and two
+streaming replicas, then the three bumps applied and `make ha-up` again over
+the same volumes.
+
+- **etcd 3.6.4 → 3.7.1 on the existing `etcd_data` volume worked**: the log
+  shows `updated storage version 3.6.0 → 3.7.0` and Patroni carried on. Upstream
+  requires clusters to be on 3.6.11+ before moving to 3.7; that guards
+  mixed-version multi-member clusters, which this single-node lab etcd is not.
+  A real three-member etcd should follow the upstream path.
+- **timescaledb-ha pg18.6-ts2.30.0**: PostgreSQL 18.4 → 18.6 (minor, same data
+  directory), pgBackRest still 2.59.1 so docs/BACKUPS.md stands, license
+  `timescale`. The extension stays at 2.29.2 until migrate updates it — run
+  with the TimescaleDB-branch migrate image through HAProxy it went to 2.30.0
+  on the primary, and both replicas reported 2.30.0.
+- **`make ha-failover-test` passed twice**: before the extension update
+  (failover 2s, 392 events, zero loss) and after it plus a loader/detect
+  restart (2s, 364 events, zero loss); Grafana answered, jobs followed the new
+  primary, the old primary rejoined.
+- **HAProxy 3.2 → 3.4**: `haproxy -c` clean. The default `balance` became
+  `random` in 3.3; harmless here (one healthy server on :5000, read-only spread
+  on :5001 is not load-sensitive).
+
+**Found on the way: `make ha-up` over an existing cluster failed
+intermittently**, in migrate, with `cannot execute GRANT in a read-only
+transaction`. HAProxy starts every server UP until `fall` (3 × 3s) checks fail,
+so for ~9s after a restart :5000 routes to replicas as well, and migrate's
+connect-retry only covers connection failures. Reproduced on **3.2** as well as
+3.4 (run 1 failed, run 2 passed on 3.2), so it predates this bump; fresh
+`ha-up`s never hit it because initdb outlasts the window. Fix:
+`init-state down` on both listeners (HAProxy ≥ 3.1), so a server takes traffic
+only after `rise` checks pass. Four consecutive restarts on 3.4 then all
+passed, each with migrate logging "database not ready" three times before
+reaching the real primary.
