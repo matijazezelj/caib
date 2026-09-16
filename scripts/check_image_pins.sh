@@ -13,6 +13,11 @@
 #     container; dependabot opens one PR per file and is happy to leave them
 #     on different tags. CI asserts the TSL license against whatever the
 #     compose file says, so a stale CI pin means testing the wrong build.
+#   * image constants in Python (`TSDB_IMAGE = "..."` in tests/conftest.py,
+#     `VECTOR_IMAGE` in the Vector tests, the bench). No ecosystem reads them,
+#     so a green dependabot PR bumping the compose pin had silently tested the
+#     OLD image — the Vector 0.58 PR passed CI while every Vector test still ran
+#     0.57.
 #
 # Run: bash scripts/check_image_pins.sh
 
@@ -29,6 +34,7 @@ UNPINNED_OK="grafana/grafana-image-renderer"
 # interpreter; letting the copies drift apart is how you get two images that
 # disagree about what "the pinned dependencies" means.
 MUST_AGREE="timescale/timescaledb
+timberio/vector
 ghcr.io/astral-sh/uv
 python"
 
@@ -42,6 +48,10 @@ compose_and_workflow_files() {
 
 dockerfiles() {
   git ls-files '*Dockerfile' '*Dockerfile.*'
+}
+
+python_files() {
+  git ls-files 'tests/*.py' 'scripts/*.py'
 }
 
 emit_row() {
@@ -83,16 +93,26 @@ collect() {
   done
 }
 
-rows=$(collect | sort -u)
+collect_python() {
+  local file ref
+  for file in $(python_files); do
+    # Module-level `SOMETHING_IMAGE = "repo:tag"` constants.
+    while read -r ref; do
+      [ -n "$ref" ] && emit_row "$file" "$ref"
+    done < <(sed -n 's/^[A-Z_]*IMAGE[[:space:]]*=[[:space:]]*"\([^"]\{1,\}\)".*/\1/p' "$file")
+  done
+}
+
+rows=$( { collect; collect_python; } | sort -u)
 
 if [ -z "$rows" ]; then
   echo "check_image_pins: found no image references at all — the globs are wrong." >&2
   exit 1
 fi
 
-printf '%-28s %-42s %s\n' FILE IMAGE TAG
+printf '%-32s %-42s %s\n' FILE IMAGE TAG
 while IFS=$'\t' read -r file repo tag; do
-  printf '%-28s %-42s %s\n' "$file" "$repo" "$tag"
+  printf '%-32s %-42s %s\n' "$file" "$repo" "$tag"
 done <<<"$rows"
 echo
 

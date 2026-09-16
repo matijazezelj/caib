@@ -12,6 +12,15 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Dependency PR hygiene
+
+- Test fixture pauses TimescaleDB policy jobs on each test database, removing
+  intermittent `LockNotAvailable`/`DeadlockDetected` CI failures.
+- `scripts/check_image_pins.sh` also checks image constants in `tests/` and
+  `scripts/`, and requires the Vector pins to agree — a compose-only image bump
+  can no longer pass CI while the tests run the old image.
+- Dependabot groups Dockerfile base-image bumps across directories into one PR.
+
 ### Agent query layer: review fixes and MCP over HTTP
 
 - MCP over Streamable HTTP at `/mcp` on the `agent-api` service, behind the
