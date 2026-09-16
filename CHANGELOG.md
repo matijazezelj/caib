@@ -12,6 +12,30 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Agent query layer: review fixes and MCP over HTTP
+
+- MCP over Streamable HTTP at `/mcp` on the `agent-api` service, behind the
+  same bearer token: an agent needs only the token, not the `caib_agent_ro`
+  password. Stateless, JSON responses. stdio (`caib-agent-mcp`) is unchanged.
+- New `CAIB_AGENT_ALLOWED_ORIGINS`: any request carrying an `Origin` header
+  not listed there gets 403, on `/v1` and `/mcp` (DNS-rebinding guard).
+- Fixed: `make up` failed for every `.env` created before the agent layer —
+  compose required `CAIB_AGENT_API_TOKEN` with `:?`, which compose evaluates
+  even when the `agent-api` profile is off. The service's own startup check
+  still refuses an empty token.
+- Fixed: the `agent-api` service could never authenticate on a compose stack —
+  `migrate` was not given `CAIB_AGENT_RO_PASSWORD`, so `caib_agent_ro` was
+  created without a password. Existing stacks: re-run `make migrate`.
+- Fixed: `GET /v1/actors/{actor}` returned 404 for any actor containing `/`,
+  i.e. every AWS IAM ARN.
+- Fixed: `get_alerts` and `alert_summary` hid open and acked alerts whose
+  rule last matched more than 7 days ago (and could not reach them at all past
+  90 days), so "what is open?" could answer "nothing". Unresolved alerts now
+  ignore the default window; an explicit `since` applies to every status and
+  is no longer clamped for alerts.
+- Fixed: `truncated` was true whenever a page was exactly full, even with no
+  more rows. It now means more rows exist.
+
 ### Agent query layer
 
 - New optional read-only query surface over the audit log, compose profile
