@@ -692,6 +692,31 @@ inferred from green checks:
   HOWTO still say "verified on 0.57.0": that is what was verified then, and is
   left as history.
 
+## 2026-09-16 — Grafana 13.2.2
+
+A major-version bump, so verified on a running stack rather than from the green
+check (CI's dashboard test EXPLAINs panel SQL; it never starts Grafana).
+
+Demo-seeded stack on 13.2.2 with the render overlay: `/api/health` reports
+13.2.2, all 7 provisioned dashboards load, the `caib` datasource health check
+passes (`$__env{}` interpolation and `timescaledb: true` intact), and the log
+has no provisioning errors besides the empty `provisioning/alerting` and
+`plugins` directories. The four README screenshots were re-rendered at their
+original sizes and default time ranges and compared by eye against the 12.4.9
+ones: same data, colours and layout; differences are cosmetic (tighter panel
+headers, so the Ingest lag table no longer clips its last row; data-link cells
+in Top actors/actions now styled as links). The screenshots in `docs/img/` are
+the 13.2.2 renders.
+
+**The render overlay needed a change.** Grafana 13 removed the renderer plugin
+and requires a shared token with the remote renderer service; without
+`GF_RENDERING_RENDERER_TOKEN` it will not render. `compose.render.yml` now sets
+it and the renderer's `AUTH_TOKEN` from `CAIB_RENDERER_TOKEN` (default
+`caib-local-render` — the renderer publishes no port, so the default guards only
+the compose network). Also noted from the 13.0 upgrade guide, none affecting
+CAIB: dashboards move to unified storage on startup, numeric-id datasource APIs
+are off by default, `grafana-cli`/`grafana-server` are gone, gzip is on.
+
 ## 2026-09-16 — HA overlay: etcd 3.7.1, HAProxy 3.4, timescaledb-ha pg18.6-ts2.30.0; HAProxy init-state
 
 Tested as an operator would meet it: `make ha-up` on the old versions (etcd
