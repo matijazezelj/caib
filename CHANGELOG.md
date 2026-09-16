@@ -12,6 +12,12 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Python 3.14
+
+- All three images on `python:3.14-slim` (supersedes #31). `.python-version`
+  pins dev and CI to 3.14 so the tests run on the interpreter the images ship;
+  code stays compatible with 3.12.
+
 ### Dependency batch (2026-09-16)
 
 - Python: `mcp` 2.2.0, `psycopg`/`psycopg-binary` 3.3.5 (and the `>=3.3.5`
