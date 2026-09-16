@@ -21,7 +21,8 @@ the unbuilt ones) → `docs/DEPLOY.md` (what changes on a real host) → module
 
 ## The todo list (task trackers don't transfer between accounts)
 
-Ranked; 1–4 are credential-gated, 5–7 are pure keyboard work:
+Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
+2026-09-16 agent-layer fix round) — details in DECISIONS.md and CHANGELOG.md:
 
 1. **Live-verify cloudflare_audit** — needs a CF API token in `.env`; run
    `caib-poller --module cloudflare_audit --once`, work the checklist in
@@ -32,30 +33,15 @@ Ranked; 1–4 are credential-gated, 5–7 are pure keyboard work:
    `serviceData` vs `metadata` IAM payload question affects a shipped rule.
 3. **Dogfood ~2 weeks on a real VM** — use it as an analyst; harvest missing
    attrs, noisy rules, wrong severities into DECISIONS/API_NOTES; do one real
-   pgBackRest restore drill.
+   pgBackRest restore drill. Point a real agent at the agent layer
+   (`/mcp`) while doing it — nothing there has met real data yet — and decide
+   whether ack/close writes belong in v2.
 4. **Build slack_audit / zoom / knowbe4** from the HOWTO recipes — needs
    Enterprise Grid token, Zoom S2S app, KnowBe4 key.
-5. **Agent query layer (user-requested)**: read-only HTTP/JSON API + MCP
-   server over one shared query core as `caib_ro` with LIMIT caps +
-   statement_timeout. Tools: search_events (Search-dashboard semantics),
-   get_alerts, alert_summary, top_actors, actor_activity (mirror the user's
-   existing Wazuh MCP server's surface), module_health (Overview ops row as
-   JSON), list_rules. Read-only v1 — no ack/close writes until dogfooding
-   shows the lifecycle. Compose profile `agent-api`.
-6. **Reliability/ops backlog** from the 2026-08-25 code review (P0 items are
-   done — see the DECISIONS entry). Left: unbounded `detect.outbox` /
-   `detect.alerts` / `ingest.dead_letter` (no retention on any of them);
-   `CAIB_NOTIFY_FORMAT` documented but never passed to the detect service in
-   compose; a bad `CAIB_NOTIFY_MIN_SEVERITY` crashing at first alert instead
-   of at startup; SIGHUP reload killing the process on a YAML error (only
-   `ValueError`/`SystemExit` are caught); a permanently-flooding rule
-   notifying once and never again (second overflow folds as `recurrence`);
-   `notify.drain` POSTing inside an open transaction.
-7. **Supply chain / CI**: no dependabot or renovate on six pinned images +
-   `uv.lock`; CI never builds either Dockerfile and never validates the
-   compose files; images run as root and build from `pip install .` rather
-   than `uv.lock`; `actions/checkout@v4` + `setup-uv@v5` are on deprecated
-   Node 20. Repo is still private, untagged, no `SECURITY.md`.
+5. ~~Agent query layer~~ — done (`docs/AGENT_API.md`).
+6. ~~Reliability/ops backlog~~ — done.
+7. ~~Supply chain / CI~~ — done. Left: repo still private, no signing key for
+   tagged releases.
 8. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
    bottom of the spec); a consulting blog post from the bench + DECISIONS
    findings.
@@ -111,6 +97,12 @@ Ranked; 1–4 are credential-gated, 5–7 are pure keyboard work:
 - **VRL**: `if` is invalid as an object-literal value; a remap outputs `.`
   (assign it!); `??` on infallible expressions is a compile error; full list
   in the HOWTO.
+- **Never `${VAR:?}` for a variable only an opt-in (profiled) service uses**:
+  compose interpolates every service even with its profile off, so it breaks
+  `make up` for every existing `.env`. Put the check in the service's startup.
+  `tests/test_compose_env.py` guards it.
+- **Before starting a todo, `git fetch` and read the log**: a stale checkout
+  once rebuilt an already-merged feature from an out-of-date todo list.
 - **Rule SQL goes through psycopg named params**: literal `%` must be `%%`.
   Detect tests use `Cfg(safety_lag_s=0)` because freshly-loaded events sit
   inside the safety lag otherwise.

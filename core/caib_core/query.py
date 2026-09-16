@@ -94,9 +94,12 @@ def _aware(value: Any, field: str) -> datetime.datetime | None:
 
 
 def _window(
-    since: Any, until: Any, default_span: datetime.timedelta
+    since: Any,
+    until: Any,
+    default_span: datetime.timedelta,
+    max_lookback: datetime.timedelta | None = MAX_LOOKBACK,
 ) -> tuple[datetime.datetime, datetime.datetime, bool]:
-    """Resolve (since, until) and clamp to MAX_LOOKBACK.
+    """Resolve (since, until) and clamp to `max_lookback` (None: no clamp).
 
     Returns the effective window plus whether it was clamped. Callers put both
     in the response: an agent that asked for a year and silently got 90 days
@@ -109,7 +112,9 @@ def _window(
         raise QueryError(
             f"since ({since_dt.isoformat()}) must be before until ({until_dt.isoformat()})"
         )
-    floor = now - MAX_LOOKBACK
+    if max_lookback is None:
+        return since_dt, until_dt, False
+    floor = now - max_lookback
     if since_dt < floor:
         return floor, until_dt, True
     return since_dt, until_dt, False
@@ -158,14 +163,27 @@ def _fetch(conn: psycopg.Connection, sql: str, params: dict) -> list[dict]:
         return _rows(cur)
 
 
+def _fetch_page(
+    conn: psycopg.Connection, sql: str, params: dict, limit: int
+) -> tuple[list[dict], bool]:
+    """Run a `LIMIT %(limit)s` query for one row more than the page, so
+    `truncated` means "more rows exist" rather than "the page happened to be
+    full" — exactly `limit` matching rows is not a truncated answer."""
+    rows = _fetch(conn, sql, {**params, "limit": limit + 1})
+    return rows[:limit], len(rows) > limit
+
+
 def _window_meta(
-    since: datetime.datetime, until: datetime.datetime, clamped: bool
+    since: datetime.datetime,
+    until: datetime.datetime,
+    clamped: bool,
+    max_lookback: datetime.timedelta | None = MAX_LOOKBACK,
 ) -> dict:
     return {
         "since": since.isoformat(),
         "until": until.isoformat(),
         "clamped_to_max_lookback": clamped,
-        "max_lookback_days": MAX_LOOKBACK.days,
+        "max_lookback_days": max_lookback.days if max_lookback else None,
     }
 
 
@@ -197,7 +215,7 @@ def search_events(
 
     # Fragments are literals from this file; every caller value is a parameter.
     where = ["event_time >= %(since)s", "event_time < %(until)s"]
-    params: dict[str, Any] = {"since": since_dt, "until": until_dt, "limit": limit}
+    params: dict[str, Any] = {"since": since_dt, "until": until_dt}
     if q:
         where.append("search_text ILIKE '%%' || %(q)s || '%%'")
         params["q"] = q
@@ -213,18 +231,19 @@ def search_events(
             params[field] = value
 
     columns = EVENT_COLUMNS_WITH_RAW if include_raw else EVENT_COLUMNS
-    events = _fetch(
+    events, truncated = _fetch_page(
         conn,
         f"SELECT {columns} FROM caib.events"
         f" WHERE {' AND '.join(where)}"
         " ORDER BY event_time DESC LIMIT %(limit)s",
         params,
+        limit,
     )
     return {
         "window": _window_meta(since_dt, until_dt, clamped),
         "limit": limit,
         "count": len(events),
-        "truncated": len(events) == limit,
+        "truncated": truncated,
         "include_raw": include_raw,
         "events": events,
     }
@@ -234,6 +253,32 @@ ALERT_COLUMNS = (
     "id, rule_id, dedup_key, severity, title, entity, context, "
     "first_seen, last_seen, event_count, status"
 )
+
+
+# Unresolved alerts are exempt from the default window. An open alert whose
+# rule stopped matching two weeks ago is still an open case — it is exactly
+# what "what is open right now?" is asking about — and detect.alerts keeps it
+# forever (caib_core.retention only ever deletes closed ones). Filtering it out
+# by last_seen answered that question with "nothing". An explicit `since` is
+# the caller asking about recency, so it applies to every status.
+#
+# No MAX_LOOKBACK clamp and no upper bound either: the 90-day ceiling is the
+# caib.events retention policy, which alerts do not follow, and last_seen is a
+# vendor event time that can sit slightly in the future.
+ALERT_DEFAULT_WINDOW_FILTER = "(status <> 'closed' OR last_seen >= %(since)s)"
+ALERT_EXPLICIT_WINDOW_FILTER = "last_seen >= %(since)s"
+
+
+def _alert_window(since: Any) -> tuple[dict, str, datetime.datetime]:
+    since_dt, until_dt, _ = _window(since, None, DEFAULT_ALERT_WINDOW, max_lookback=None)
+    explicit = since is not None
+    meta = _window_meta(since_dt, until_dt, False, max_lookback=None)
+    meta["applies_to"] = "all alerts" if explicit else "closed alerts only"
+    return (
+        meta,
+        ALERT_EXPLICIT_WINDOW_FILTER if explicit else ALERT_DEFAULT_WINDOW_FILTER,
+        since_dt,
+    )
 
 
 def get_alerts(
@@ -246,15 +291,15 @@ def get_alerts(
 ) -> dict:
     """Alerts from detect.alerts, most recently seen first.
 
-    `since` filters on last_seen, so a long-running alert that is still firing
-    shows up in a short window even if it first fired months ago. Window
-    defaults to the last 7 days. Cap 500 rows.
+    Without `since`: every open and acked alert, however old, plus closed
+    alerts last seen in the past 7 days. With `since`: every alert last seen
+    at or after it, whatever its status. Cap 500 rows.
     """
-    since_dt, until_dt, clamped = _window(since, None, DEFAULT_ALERT_WINDOW)
+    meta, window_filter, since_dt = _alert_window(since)
     limit = _cap(limit, ALERTS_CAP, 100)
 
-    where = ["last_seen >= %(since)s", "last_seen < %(until)s"]
-    params: dict[str, Any] = {"since": since_dt, "until": until_dt, "limit": limit}
+    where = [window_filter]
+    params: dict[str, Any] = {"since": since_dt}
     for field, value in (
         ("status", _one_of(status, ALERT_STATUSES, "status")),
         ("severity", _one_of(severity, SEVERITIES, "severity")),
@@ -264,36 +309,38 @@ def get_alerts(
             where.append(f"{field} = %({field})s")
             params[field] = value
 
-    alerts = _fetch(
+    alerts, truncated = _fetch_page(
         conn,
         f"SELECT {ALERT_COLUMNS} FROM detect.alerts"
         f" WHERE {' AND '.join(where)}"
-        " ORDER BY last_seen DESC LIMIT %(limit)s",
+        " ORDER BY last_seen DESC, id DESC LIMIT %(limit)s",
         params,
+        limit,
     )
     return {
-        "window": _window_meta(since_dt, until_dt, clamped),
+        "window": meta,
         "limit": limit,
         "count": len(alerts),
-        "truncated": len(alerts) == limit,
+        "truncated": truncated,
         "alerts": alerts,
     }
 
 
 def alert_summary(conn: psycopg.Connection, since: Any = None) -> dict:
-    """Alert counts over a window, grouped by status and by severity.
+    """Alert counts, grouped by status and by severity.
 
-    One GROUP BY over (status, severity) folded in Python, so the two
-    breakdowns are guaranteed to sum to the same total. Window defaults to the
-    last 7 days, on last_seen — same filter as get_alerts().
+    Same window rule as get_alerts(): without `since`, every open and acked
+    alert plus closed ones last seen in the past 7 days, so `by_status.open`
+    is the real open count. One GROUP BY over (status, severity) folded in
+    Python, so the two breakdowns are guaranteed to sum to the same total.
     """
-    since_dt, until_dt, clamped = _window(since, None, DEFAULT_ALERT_WINDOW)
+    meta, window_filter, since_dt = _alert_window(since)
     rows = _fetch(
         conn,
         "SELECT status, severity, count(*)::bigint AS n FROM detect.alerts"
-        " WHERE last_seen >= %(since)s AND last_seen < %(until)s"
+        f" WHERE {window_filter}"
         " GROUP BY status, severity",
-        {"since": since_dt, "until": until_dt},
+        {"since": since_dt},
     )
     # Zero-filled so a caller can tell "no critical alerts" from "the key for
     # critical is missing because I forgot to ask for it".
@@ -306,7 +353,7 @@ def alert_summary(conn: psycopg.Connection, since: Any = None) -> dict:
         by_status[row["status"]] = by_status.get(row["status"], 0) + n
         by_severity[row["severity"]] = by_severity.get(row["severity"], 0) + n
     return {
-        "window": _window_meta(since_dt, until_dt, clamped),
+        "window": meta,
         "total": total,
         "by_status": by_status,
         "by_severity": by_severity,
@@ -360,19 +407,21 @@ def top_actors(
 
     aligned = (since_dt.minute, since_dt.second, since_dt.microsecond) == (0, 0, 0)
     template = TOP_ACTORS_CAGG_SQL if aligned else TOP_ACTORS_EVENTS_SQL
-    params: dict[str, Any] = {"since": since_dt, "until": until_dt, "limit": limit}
+    params: dict[str, Any] = {"since": since_dt, "until": until_dt}
     module_filter = ""
     if module is not None:
         module_filter = "AND module = %(module)s"
         params["module"] = module
 
-    actors = _fetch(conn, template.format(module_filter=module_filter), params)
+    actors, truncated = _fetch_page(
+        conn, template.format(module_filter=module_filter), params, limit
+    )
     return {
         "window": _window_meta(since_dt, until_dt, clamped),
         "source": "caib.actors_1h" if aligned else "caib.events",
         "limit": limit,
         "count": len(actors),
-        "truncated": len(actors) == limit,
+        "truncated": truncated,
         "actors": actors,
     }
 
@@ -414,17 +463,17 @@ def actor_activity(
         "actor": actor,
         "since": since_dt,
         "until": until_dt,
-        "limit": limit,
         "rollup_limit": ACTOR_ROLLUP_CAP,
     }
 
-    events = _fetch(
+    events, truncated = _fetch_page(
         conn,
         f"SELECT {EVENT_COLUMNS} FROM caib.events"
         " WHERE actor = %(actor)s"
         "   AND event_time >= %(since)s AND event_time < %(until)s"
         " ORDER BY event_time DESC LIMIT %(limit)s",
         params,
+        limit,
     )
     by_action = _fetch(conn, ACTOR_ROLLUP_SQL, params)
     return {
@@ -432,7 +481,7 @@ def actor_activity(
         "window": _window_meta(since_dt, until_dt, clamped),
         "limit": limit,
         "count": len(events),
-        "truncated": len(events) == limit,
+        "truncated": truncated,
         "events": events,
         "by_action": by_action,
     }

@@ -29,6 +29,9 @@ class Settings:
     bind: str = DEFAULT_BIND
     port: int = DEFAULT_PORT
     pool_max_size: int = DEFAULT_POOL_MAX
+    # Browser Origins allowed to call the API. Empty = any request carrying an
+    # Origin header is refused (see caib_agentapi.app.origin_allowed).
+    allowed_origins: frozenset[str] = frozenset()
 
     @classmethod
     def from_env(cls, *, require_token: bool) -> "Settings":
@@ -74,6 +77,11 @@ class Settings:
             # CAIB_BIND_ADDR.
             bind=os.environ.get("CAIB_AGENT_API_BIND", DEFAULT_BIND),
             port=port,
+            allowed_origins=frozenset(
+                o.strip()
+                for o in os.environ.get("CAIB_AGENT_ALLOWED_ORIGINS", "").split(",")
+                if o.strip()
+            ),
         )
 
 

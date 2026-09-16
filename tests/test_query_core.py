@@ -124,6 +124,22 @@ def test_a_smaller_limit_is_honoured_and_reported_as_truncated(ro):
     assert result["truncated"] is True
 
 
+def test_exactly_limit_rows_is_not_truncated(ro):
+    """Seven events sit in the default window. A page of seven is the whole
+    answer; only a page that leaves rows behind is truncated."""
+    exact = query.search_events(ro, limit=7)
+    assert (exact["count"], exact["truncated"]) == (7, False)
+    assert query.search_events(ro, limit=6)["truncated"] is True
+
+    alerts = query.get_alerts(ro, limit=3)
+    assert (alerts["count"], alerts["truncated"]) == (3, False)
+    assert query.get_alerts(ro, limit=2)["truncated"] is True
+
+    actors = query.top_actors(ro)["count"]
+    assert query.top_actors(ro, limit=actors)["truncated"] is False
+    assert query.actor_activity(ro, "alice@example.com", limit=4)["truncated"] is False
+
+
 def test_a_nonsense_limit_is_rejected(ro):
     for bad in (0, -1, "twelve"):
         with pytest.raises(query.QueryError):
@@ -168,6 +184,61 @@ def test_get_alerts_filters_and_orders(ro):
     assert seen == sorted(seen, reverse=True)
     with pytest.raises(query.QueryError):
         query.get_alerts(ro, status="acknowledged")
+
+
+def _add_alert(db_url: str, dedup_key: str, status: str, last_seen_sql: str) -> None:
+    with psycopg.connect(db_url) as conn:
+        conn.execute(
+            "INSERT INTO detect.alerts (rule_id, dedup_key, severity, title, first_seen,"
+            f" last_seen, status) VALUES ('aws_cloudtrail.root_console_login', %s, 'high',"
+            f" 'Root account console login', {last_seen_sql}, {last_seen_sql}, %s)",
+            (dedup_key, status),
+        )
+
+
+@pytest.fixture()
+def stale_alerts(seeded_db):
+    """Alerts whose rules stopped matching long ago, and one from the future."""
+    _add_alert(seeded_db, "open-10d", "open", "now() - interval '10 days'")
+    _add_alert(seeded_db, "ack-120d", "ack", "now() - interval '120 days'")
+    _add_alert(seeded_db, "closed-10d", "closed", "now() - interval '10 days'")
+    # Vendor event times drift; last_seen can sit slightly ahead of now().
+    _add_alert(seeded_db, "open-future", "open", "now() + interval '2 minutes'")
+    return seeded_db
+
+
+def test_open_and_acked_alerts_are_never_aged_out_of_the_default_window(stale_alerts, ro):
+    """"What is open?" must not be answered with "nothing" because the rule
+    last matched more than a week — or more than the 90-day event retention —
+    ago. Retention never deletes open or acked alerts; neither may the view."""
+    open_keys = {a["dedup_key"] for a in query.get_alerts(ro, status="open")["alerts"]}
+    assert open_keys == {"k1", "open-10d", "open-future"}
+    assert [a["dedup_key"] for a in query.get_alerts(ro, status="ack")["alerts"]] == [
+        "k3", "ack-120d"]
+    # Closed alerts still follow the 7-day default window.
+    closed = {a["dedup_key"] for a in query.get_alerts(ro, status="closed")["alerts"]}
+    assert closed == {"k2"}
+
+    result = query.get_alerts(ro)
+    assert result["window"]["applies_to"] == "closed alerts only"
+    assert result["window"]["clamped_to_max_lookback"] is False
+
+    summary = query.alert_summary(ro)
+    assert summary["by_status"] == {"open": 3, "ack": 2, "closed": 1}
+    assert summary["total"] == 6
+
+
+def test_an_explicit_since_applies_to_every_status_and_is_not_clamped(stale_alerts, ro):
+    now = datetime.datetime.now(UTC)
+    recent = query.get_alerts(ro, since=now - datetime.timedelta(days=1))
+    assert {a["dedup_key"] for a in recent["alerts"]} == {"k1", "k2", "k3", "open-future"}
+    assert recent["window"]["applies_to"] == "all alerts"
+
+    # Alerts are not caib.events: the 90-day retention ceiling does not apply.
+    year = query.get_alerts(ro, since=now - datetime.timedelta(days=365))
+    assert year["window"]["clamped_to_max_lookback"] is False
+    assert "ack-120d" in {a["dedup_key"] for a in year["alerts"]}
+    assert query.alert_summary(ro, since=now - datetime.timedelta(days=365))["total"] == 7
 
 
 def test_alert_summary_breakdowns_agree_with_the_total(ro):

@@ -1,9 +1,10 @@
 # Agent query layer
 
 A read-only query surface over the CAIB audit log, for LLM agents and for
-anything else that wants JSON instead of a dashboard. Two transports —
-an HTTP/JSON API and an MCP stdio server — over one shared query core
-(`caib_core.query`), so both answer identically and both refuse identically.
+anything else that wants JSON instead of a dashboard. Three ways in — an
+HTTP/JSON API, MCP over Streamable HTTP (`/mcp` on the same service), and an MCP
+stdio server — over one shared query core (`caib_core.query`), so all of them
+answer identically and refuse identically.
 
 Compose profile `agent-api`. Off unless you ask for it.
 
@@ -74,13 +75,15 @@ And three enforced in `caib_core.query`, so both transports get them:
 - a hard `LIMIT` cap per function, applied regardless of what the caller asks
   for (`search_events` 500, `get_alerts` 500, `actor_activity` 500,
   `top_actors` 100);
-- a 90-day maximum lookback, matching the `caib.events` retention policy;
+- a 90-day maximum lookback on event queries, matching the `caib.events`
+  retention policy (alerts are not clamped: they do not follow it);
 - `raw` — the full original vendor event — excluded from `search_events` unless
   explicitly requested, and never returned by `actor_activity` at all.
 
 Every response reports the window it actually used and whether the result was
 truncated, so a clamped window or a capped page is visible to the caller rather
-than silently changing the answer.
+than silently changing the answer. `truncated` means more matching rows exist
+(the query fetches one past the limit), not merely that the page is full.
 
 ## Setup
 
@@ -88,12 +91,15 @@ than silently changing the answer.
 
 ```
 CAIB_AGENT_RO_PASSWORD   # the caib_agent_ro role's password
-CAIB_AGENT_API_TOKEN     # the HTTP API's bearer token
+CAIB_AGENT_API_TOKEN     # bearer token for /v1 and /mcp
 ```
 
 **Upgrading an existing deployment:** `scripts/init_env.sh` never overwrites an
 existing `.env`, so add both by hand — any long random value — then re-run
-`make migrate` so `migrate` creates the role and syncs its password. The
+`make migrate` so `migrate` creates the role and syncs its password. (Stacks
+brought up before the 2026-09-16 fix never passed the password to `migrate`,
+so `caib_agent_ro` has none and `agent-api` logs `password authentication
+failed`: re-run `make migrate`. `/readyz`, not `/healthz`, shows this.) The
 `agent-api` service will not start without them.
 
 `CAIB_AGENT_RO_PASSWORD` is *not* `CAIB_PG_RO_PASSWORD`. Those are two different
@@ -115,9 +121,17 @@ behind the same reverse proxy as Grafana — see `docs/DEPLOY.md`.
 
 ## HTTP endpoints
 
-Every `/v1/*` route requires `Authorization: Bearer $CAIB_AGENT_API_TOKEN`. The
-service refuses to start if that variable is empty or unset; there is no
-unauthenticated mode.
+Every `/v1/*` route and `/mcp` require `Authorization: Bearer
+$CAIB_AGENT_API_TOKEN`. The service refuses to start if that variable is empty
+or unset; there is no unauthenticated mode. (Compose passes it with `:-`, not
+`:?`: compose interpolates profiled services even when their profile is off, so
+`:?` broke `make up` for any `.env` without the variable. The service's own
+startup check is the guard.)
+
+A request carrying an `Origin` header is refused with 403 `forbidden_origin`
+unless that Origin is listed in `CAIB_AGENT_ALLOWED_ORIGINS` (comma-separated,
+default empty). CLI and agent clients send no Origin and are unaffected; this is
+the DNS-rebinding guard the MCP transport spec asks for, applied to `/v1` too.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -125,9 +139,10 @@ unauthenticated mode.
 | GET | `/v1/alerts` | `status`, `severity`, `rule_id`, `since`, `limit` |
 | GET | `/v1/alerts/summary` | `since` |
 | GET | `/v1/actors/top` | `since`, `module`, `limit` |
-| GET | `/v1/actors/{actor}` | `since`, `until`, `limit` |
+| GET | `/v1/actors/{actor}` | `since`, `until`, `limit`; `actor` may contain `/` (IAM ARNs), raw or `%2F` |
 | GET | `/v1/health/modules` | — |
 | GET | `/v1/rules` | — |
+| POST | `/mcp` | MCP Streamable HTTP — see below |
 | GET | `/healthz` | liveness, no database, no auth |
 | GET | `/readyz` | database round-trip, no auth |
 
@@ -140,15 +155,26 @@ Errors come back as `{"error": "<slug>", "detail": "<prose>"}` and never carry a
 traceback — those go to the service log. `bad_request` (400) means the request
 was wrong; `unauthorized` (401); `query_timeout` and `database_unavailable`
 (503) are both worth retrying; `internal_error` (500) is a bug here.
+`forbidden_origin` (403) is the Origin guard above.
 
 Interactive schema: `http://127.0.0.1:8088/docs`.
 
 ## MCP tools
 
-Same seven functions, same core, same caps. `caib-agent-mcp` speaks MCP over
-stdio and connects to the database directly — not through the HTTP API — so
-there is no bearer token involved: stdio has exactly one client, the process
-that spawned it. Tools only; no sampling, no prompts, no resources.
+Same seven functions, same core, same caps, over two MCP transports. Tools
+only; no sampling, no prompts, no resources.
+
+- **Streamable HTTP at `/mcp`** on the running `agent-api` service, behind the
+  same bearer token and Origin guard as `/v1`. The client holds only the token,
+  never database credentials, so this is the one to use for an agent on another
+  machine (through the TLS proxy) or whenever the password should stay on the
+  host. Stateless, JSON responses: every POST stands alone, there is no
+  server-initiated stream (`GET /mcp` gets 405), and any restart or replica can
+  answer any request.
+- **stdio** via `caib-agent-mcp`, which connects to the database directly — not
+  through the HTTP API — so there is no bearer token involved: stdio has
+  exactly one client, the process that spawned it. It needs the
+  `caib_agent_ro` password instead.
 
 | Tool | For |
 | --- | --- |
@@ -162,8 +188,28 @@ that spawned it. Tools only; no sampling, no prompts, no resources.
 
 ### Pointing an MCP client at it
 
-The server needs `CAIB_RO_PG_URL` and a readable rules directory. Against a
-running compose stack, from the repo:
+Over HTTP, against the running service (Claude Code shown; any client with
+Streamable HTTP and custom headers works the same way):
+
+```sh
+claude mcp add --transport http caib http://127.0.0.1:8088/mcp \
+  --header "Authorization: Bearer $CAIB_AGENT_API_TOKEN"
+```
+
+```jsonc
+{
+  "mcpServers": {
+    "caib": {
+      "type": "http",
+      "url": "http://127.0.0.1:8088/mcp",
+      "headers": { "Authorization": "Bearer ${CAIB_AGENT_API_TOKEN}" }
+    }
+  }
+}
+```
+
+Over stdio, the server needs `CAIB_RO_PG_URL` and a readable rules directory.
+Against a running compose stack, from the repo:
 
 ```jsonc
 {
@@ -212,10 +258,17 @@ Logs go to stderr, because stdout is the transport.
   `severity=warn` returns 400 rather than an empty list, because an empty
   result reads as "nothing happened", which is the worst possible wrong answer
   about an audit log.
-- **`get_alerts` filters on `last_seen`**, so an alert that first fired months
-  ago but is still firing appears in a short window. An alert row folds every
-  recurrence of the same thing, so read `event_count`, `first_seen` and
-  `last_seen` together rather than counting rows.
+- **Open and acked alerts never age out of the default view.** Without `since`,
+  `get_alerts` and `alert_summary` return every open and acked alert however
+  long ago its rule last matched, plus closed alerts last seen in the past 7
+  days (`window.applies_to: "closed alerts only"`). Retention never deletes an
+  unresolved alert, so neither does the view — "what is open?" gets the real
+  answer. An explicit `since` filters every status on `last_seen`
+  (`applies_to: "all alerts"`) and is not clamped to 90 days.
+- **Alerts are ordered and filtered on `last_seen`**, so an alert that first
+  fired months ago but is still firing appears in a short window. An alert row
+  folds every recurrence of the same thing, so read `event_count`,
+  `first_seen` and `last_seen` together rather than counting rows.
 - **`top_actors` reads the hourly rollup only when the window starts on an hour
   boundary**, and counts raw events otherwise; a bucket straddling the boundary
   would over- or under-report. The response says which source ran.
