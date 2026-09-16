@@ -678,7 +678,7 @@ inferred from green checks:
   `StreamableHTTPASGIApp`. The full suite (201, minus the three Vector e2e tests
   this dev host cannot network) passes on the new lock, including the
   official-client test against a live uvicorn.
-- **uv 0.12.11.** The relocked `uv.lock` (written by uv 0.12.15) still passes
+- **uv 0.12.15.** The relocked `uv.lock` (written by uv 0.12.15) still passes
   `uv lock --check` under uv 0.11.17, so a mixed toolchain during rollout reads
   it. Upstream 0.12.0 breaking changes don't touch `sync --frozen`, the lock
   version, or the `UV_*` env vars the Dockerfiles set.

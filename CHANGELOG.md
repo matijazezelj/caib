@@ -16,7 +16,7 @@ are not itemised here; what follows is what changed after it, by pull request.
 
 - Python: `mcp` 2.2.0, `psycopg`/`psycopg-binary` 3.3.5 (and the `>=3.3.5`
   floors), `ruff` 0.16.8, `boto3` 1.43.96. Supersedes #22, #23, #25.
-- `ghcr.io/astral-sh/uv` 0.12.11 in all three Dockerfiles (#18–#20);
+- `ghcr.io/astral-sh/uv` 0.12.15 in all three Dockerfiles (#18–#20);
   `astral-sh/setup-uv` v10.1.0 in CI (#24).
 - `timberio/vector` 0.58.0 in compose **and** in the Vector tests, which is what
   actually exercises it (#7).
