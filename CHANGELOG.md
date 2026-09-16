@@ -21,6 +21,14 @@ are not itemised here; what follows is what changed after it, by pull request.
   "read-only transaction" — HAProxy routed :5000 to replicas for ~9s after
   starting. Servers now start `init-state down`.
 
+### Grafana 13.2.2
+
+- `grafana/grafana` 13.2.2 (supersedes #10, #28). Verified on a running demo
+  stack: provisioning, datasource and all four README dashboards render; the
+  screenshots are re-rendered on 13.2.2.
+- `compose.render.yml` passes a renderer token (`CAIB_RENDERER_TOKEN`), which
+  Grafana 13 requires to render.
+
 ### Dependency batch (2026-09-16)
 
 - Python: `mcp` 2.2.0, `psycopg`/`psycopg-binary` 3.3.5 (and the `>=3.3.5`

@@ -78,7 +78,7 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`
   (needs `make ha-up` first), `make restore-test`.
 - Images pinned: timescaledb 2.29.2-pg18 (TSL — never the `-oss` builds, CI
-  asserts the license), vector 0.58.0-debian, grafana 12.4.9, HA nodes
+  asserts the license), vector 0.58.0-debian, grafana 13.2.2, HA nodes
   `timescale/timescaledb-ha:pg18.6-ts2.30.0` (ships Patroni + pgBackRest +
   pg_textsearch). pg19 has no TimescaleDB build yet.
 
