@@ -12,6 +12,15 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### HA overlay
+
+- `coreos/etcd` v3.7.1 (#9), `haproxy` 3.4-alpine (#8),
+  `timescale/timescaledb-ha` pg18.6-ts2.30.0. `make ha-failover-test` passes on
+  the upgraded cluster, before and after the extension update.
+- Fixed: `make ha-up` over an existing cluster could fail in migrate with
+  "read-only transaction" — HAProxy routed :5000 to replicas for ~9s after
+  starting. Servers now start `init-state down`.
+
 ### Dependency batch (2026-09-16)
 
 - Python: `mcp` 2.2.0, `psycopg`/`psycopg-binary` 3.3.5 (and the `>=3.3.5`
