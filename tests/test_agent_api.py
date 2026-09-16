@@ -145,6 +145,71 @@ def test_top_actors_is_not_shadowed_by_the_actor_path_parameter(client):
     assert {r["action"] for r in one["by_action"]} == {"GetObject"}
 
 
+ARN = "arn:aws:iam::123456789012:user/carol"
+
+
+@pytest.fixture()
+def arn_client(seeded_db, agent_ro_url):
+    """The seeded app plus one event from an IAM ARN actor — CloudTrail's usual
+    actor shape, and one with a `/` in it."""
+    import datetime
+
+    import psycopg
+    from caib_core import loader
+    from psycopg.types.json import Jsonb
+
+    with psycopg.connect(seeded_db) as conn:
+        conn.execute(
+            "INSERT INTO ingest.landing (received_at, module, payload) VALUES (now(), %s, %s)",
+            ("aws_cloudtrail", Jsonb({
+                "event_time": datetime.datetime.now(datetime.UTC).isoformat(),
+                "event_id": "arn-actor", "actor": ARN, "action": "StopLogging",
+                "outcome": "success", "severity": "high", "attrs": {},
+            })),
+        )
+        conn.commit()
+        loader.run_batch(conn, 10, drop_raw=False)
+    app = create_app(Settings(pg_url=agent_ro_url, token=TOKEN))
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.mark.parametrize("path", (f"/v1/actors/{ARN}", "/v1/actors/" + ARN.replace("/", "%2F")))
+def test_actor_activity_reaches_actors_with_a_slash(arn_client, path):
+    """A plain {actor} path segment 404'd for every IAM ARN, encoded or not."""
+    response = arn_client.get(path, headers=AUTH)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["actor"] == ARN
+    assert [r["action"] for r in body["by_action"]] == ["StopLogging"]
+
+
+def test_open_alerts_do_not_age_out_over_http(client, seeded_db):
+    import psycopg
+
+    with psycopg.connect(seeded_db) as conn:
+        conn.execute(
+            "INSERT INTO detect.alerts (rule_id, dedup_key, severity, title, first_seen,"
+            " last_seen) VALUES ('aws_cloudtrail.root_console_login', 'old', 'high',"
+            " 'Root login', now() - interval '120 days', now() - interval '120 days')"
+        )
+        conn.commit()
+    assert client.get("/v1/alerts?status=open", headers=AUTH).json()["count"] == 2
+    assert client.get("/v1/alerts/summary", headers=AUTH).json()["by_status"]["open"] == 2
+
+
+def test_a_foreign_origin_is_refused_before_auth(agent_ro_url, seeded_db):
+    settings = Settings(pg_url=agent_ro_url, token=TOKEN,
+                        allowed_origins=frozenset({"http://localhost:6274"}))
+    with TestClient(create_app(settings)) as c:
+        evil = c.get("/v1/rules", headers={**AUTH, "Origin": "https://evil.example"})
+        assert evil.status_code == 403
+        assert evil.json()["error"] == "forbidden_origin"
+        assert c.get("/v1/rules", headers={**AUTH, "Origin": "http://localhost:6274"}
+                     ).status_code == 200
+        assert c.get("/v1/rules", headers=AUTH).status_code == 200  # no Origin: CLI
+
+
 def test_module_health_and_rules(client):
     health = client.get("/v1/health/modules", headers=AUTH).json()
     assert {m["module"] for m in health["modules"]} == {"aws_cloudtrail", "gcp_audit"}
