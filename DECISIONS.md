@@ -633,3 +633,36 @@ does, and would not hold the token anyway. Tested: a foreign Host is served, a
 foreign Origin is 403 even with the token, and the official SDK client
 (`mcp` 2.1.1, over `httpx2`, against a real uvicorn listener) initializes,
 lists seven tools, and gets both a result and a readable `isError`.
+
+## 2026-09-16 — making dependabot PRs' CI mean something
+
+Triage of the 14 open dependabot PRs found that their checks could not be
+trusted in either direction.
+
+**Red for reasons unrelated to the bump.** Two PRs touching no Python (#24
+setup-uv, #8 haproxy) failed `test` on TimescaleDB background-job races:
+`LockNotAvailable` ("concurrent refresh") in `test_caggs_answer_after_refresh`
+and `DeadlockDetected` in `test_retention_policy_drops_aged_chunk`. Migrations
+add six policy jobs and the scheduler starts running them on each fresh test
+database within seconds, colliding with tests that refresh or run policies
+themselves. `migrated_db` now unschedules every policy job (`alter_job(...,
+scheduled => false)` — definitions stay, `CALL run_job` still works) and waits
+out any run already in flight. The race did not reproduce locally in 8
+isolated runs (it needs CI's timing across the full suite), so the fix is
+matched to the recorded failures rather than to a local repro.
+
+**Red by construction.** Dependabot opens one PR per Dockerfile directory, and
+`check_image_pins.sh` requires the copies to agree, so the per-directory uv
+0.12.11 (#18–#20) and python 3.14 (#6, #12) PRs could never pass
+individually. The `docker` ecosystem entry now groups all four directories into
+one PR.
+
+**Green without testing the bump.** The Vector tests pin
+`VECTOR_IMAGE = "timberio/vector:0.57.0-debian"` in Python, and
+`tests/conftest.py`/`scripts/bench.py` pin the TimescaleDB image the same way.
+No dependabot ecosystem reads those, and the pin checker only scanned compose,
+workflows and Dockerfiles — so #7 (Vector 0.58, compose only) was green while
+every Vector test still ran 0.57. The checker now also collects module-level
+`*_IMAGE = "..."` constants from `tests/` and `scripts/`, and
+`timberio/vector` joins the must-agree list; a compose-only Vector bump now
+fails until the test pins move with it.

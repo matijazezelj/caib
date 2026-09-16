@@ -23,6 +23,14 @@ updates:
       interval: weekly
     commit-message:
       prefix: "deps"
+    # One PR across all four directories. Ungrouped, dependabot opened one PR
+    # per Dockerfile for the same bump (uv 0.12.11 x3, python 3.14 x2), and
+    # every one of them failed scripts/check_image_pins.sh by construction:
+    # the copies are required to agree, so none could merge on its own.
+    groups:
+      base-images:
+        patterns:
+          - "*"
 
   # The six pinned stack images live in the compose files, not in Dockerfiles.
   # Dependabot's docker-compose fetcher matches
