@@ -7,7 +7,7 @@
 # `FROM ... AS uv` rather than `COPY --from=ghcr.io/astral-sh/uv:...` on
 # purpose: dependabot's docker parser only reads FROM lines, so written this
 # way the uv pin is watched like every other image.
-FROM ghcr.io/astral-sh/uv:0.11.17 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.15 AS uv
 
 FROM python:3.12-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
