@@ -88,7 +88,37 @@ def migrated_db(pg_db_url: str, monkeypatch) -> str:
     monkeypatch.setenv("CAIB_PG_RO_PASSWORD", "ro-test-pw")
     monkeypatch.setenv("CAIB_AGENT_RO_PASSWORD", AGENT_RO_PASSWORD)
     migrate.run(pg_db_url, MIGRATIONS_DIR)
+    _pause_policy_jobs(pg_db_url)
     return pg_db_url
+
+
+def _pause_policy_jobs(url: str, timeout_s: float = 30.0) -> None:
+    """Stop TimescaleDB's scheduler from running policies under a test.
+
+    Migrations add compression, retention and continuous-aggregate policies,
+    and the background scheduler starts running them on the fresh database
+    within seconds. A test that then refreshes a cagg or runs a policy itself
+    races that job: CI failed intermittently with LockNotAvailable ("concurrent
+    refresh") in test_caggs_answer_after_refresh and DeadlockDetected in
+    test_retention_policy_drops_aged_chunk, on PRs that touched no Python.
+
+    Unscheduling keeps every job defined (tests can still inspect them and
+    `CALL run_job(...)` explicitly); then wait out any run that had already
+    started before the pause.
+    """
+    with psycopg.connect(url, autocommit=True) as conn:
+        conn.execute(
+            "SELECT alter_job(job_id, scheduled => false)"
+            " FROM timescaledb_information.jobs WHERE job_id >= 1000"
+        )
+        deadline = time.monotonic() + timeout_s
+        while conn.execute(
+            "SELECT count(*) FROM timescaledb_information.job_stats"
+            " WHERE job_status = 'Running'"
+        ).fetchone()[0]:
+            if time.monotonic() > deadline:
+                raise RuntimeError("TimescaleDB policy job still running after pause")
+            time.sleep(0.1)
 
 
 @pytest.fixture()
