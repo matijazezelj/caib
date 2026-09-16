@@ -70,7 +70,7 @@ make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
 |---|---|---|
 | Database | `timescale/timescaledb:2.29.2-pg18` | TSL build required (Apache-only build lacks compression/retention/caggs) |
 | Collector | `timberio/vector:0.58.0-debian` | push sources (S3/SQS, Pub/Sub) |
-| Dashboards | `grafana/grafana:12.4.9` | fully provisioned, read-only DB role |
+| Dashboards | `grafana/grafana:13.2.2` | fully provisioned, read-only DB role |
 | Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` entrypoints |
 | Pollers | `caib-poller` (built here) | one image, `CAIB_MODULE` selects the module |
 | Agent query layer | `caib-agent-api` (built here) | optional; read-only HTTP/JSON + MCP, profile `agent-api` |

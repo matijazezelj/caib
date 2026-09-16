@@ -692,6 +692,68 @@ inferred from green checks:
   HOWTO still say "verified on 0.57.0": that is what was verified then, and is
   left as history.
 
+## 2026-09-16 — Grafana 13.2.2
+
+A major-version bump, so verified on a running stack rather than from the green
+check (CI's dashboard test EXPLAINs panel SQL; it never starts Grafana).
+
+Demo-seeded stack on 13.2.2 with the render overlay: `/api/health` reports
+13.2.2, all 7 provisioned dashboards load, the `caib` datasource health check
+passes (`$__env{}` interpolation and `timescaledb: true` intact), and the log
+has no provisioning errors besides the empty `provisioning/alerting` and
+`plugins` directories. The four README screenshots were re-rendered at their
+original sizes and default time ranges and compared by eye against the 12.4.9
+ones: same data, colours and layout; differences are cosmetic (tighter panel
+headers, so the Ingest lag table no longer clips its last row; data-link cells
+in Top actors/actions now styled as links). The screenshots in `docs/img/` are
+the 13.2.2 renders.
+
+**The render overlay needed a change.** Grafana 13 removed the renderer plugin
+and requires a shared token with the remote renderer service; without
+`GF_RENDERING_RENDERER_TOKEN` it will not render. `compose.render.yml` now sets
+it and the renderer's `AUTH_TOKEN` from `CAIB_RENDERER_TOKEN` (default
+`caib-local-render` — the renderer publishes no port, so the default guards only
+the compose network). Also noted from the 13.0 upgrade guide, none affecting
+CAIB: dashboards move to unified storage on startup, numeric-id datasource APIs
+are off by default, `grafana-cli`/`grafana-server` are gone, gzip is on.
+
+## 2026-09-16 — HA overlay: etcd 3.7.1, HAProxy 3.4, timescaledb-ha pg18.6-ts2.30.0; HAProxy init-state
+
+Tested as an operator would meet it: `make ha-up` on the old versions (etcd
+3.6.4, HAProxy 3.2, `timescaledb-ha:pg18.4-ts2.29.2`) until one primary and two
+streaming replicas, then the three bumps applied and `make ha-up` again over
+the same volumes.
+
+- **etcd 3.6.4 → 3.7.1 on the existing `etcd_data` volume worked**: the log
+  shows `updated storage version 3.6.0 → 3.7.0` and Patroni carried on. Upstream
+  requires clusters to be on 3.6.11+ before moving to 3.7; that guards
+  mixed-version multi-member clusters, which this single-node lab etcd is not.
+  A real three-member etcd should follow the upstream path.
+- **timescaledb-ha pg18.6-ts2.30.0**: PostgreSQL 18.4 → 18.6 (minor, same data
+  directory), pgBackRest still 2.59.1 so docs/BACKUPS.md stands, license
+  `timescale`. The extension stays at 2.29.2 until migrate updates it — run
+  with the TimescaleDB-branch migrate image through HAProxy it went to 2.30.0
+  on the primary, and both replicas reported 2.30.0.
+- **`make ha-failover-test` passed twice**: before the extension update
+  (failover 2s, 392 events, zero loss) and after it plus a loader/detect
+  restart (2s, 364 events, zero loss); Grafana answered, jobs followed the new
+  primary, the old primary rejoined.
+- **HAProxy 3.2 → 3.4**: `haproxy -c` clean. The default `balance` became
+  `random` in 3.3; harmless here (one healthy server on :5000, read-only spread
+  on :5001 is not load-sensitive).
+
+**Found on the way: `make ha-up` over an existing cluster failed
+intermittently**, in migrate, with `cannot execute GRANT in a read-only
+transaction`. HAProxy starts every server UP until `fall` (3 × 3s) checks fail,
+so for ~9s after a restart :5000 routes to replicas as well, and migrate's
+connect-retry only covers connection failures. Reproduced on **3.2** as well as
+3.4 (run 1 failed, run 2 passed on 3.2), so it predates this bump; fresh
+`ha-up`s never hit it because initdb outlasts the window. Fix:
+`init-state down` on both listeners (HAProxy ≥ 3.1), so a server takes traffic
+only after `rise` checks pass. Four consecutive restarts on 3.4 then all
+passed, each with migrate logging "database not ready" three times before
+reaching the real primary.
+
 ## 2026-09-16 — Python 3.14 in the images, and CI tests what ships
 
 Dependabot's grouped PR (#31, earlier #6/#12/#29) moved the three Dockerfiles
