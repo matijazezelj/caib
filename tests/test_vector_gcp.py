@@ -12,7 +12,7 @@ import yaml
 from caib_core import loader
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-VECTOR_IMAGE = "timberio/vector:0.57.0-debian"
+VECTOR_IMAGE = "timberio/vector:0.58.0-debian"
 FIXTURE = ROOT / "modules" / "gcp_audit" / "fixtures" / "log_entries.json"
 MODULE_YAML = ROOT / "vector" / "modules" / "gcp_audit.yaml"
 

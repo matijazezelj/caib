@@ -666,3 +666,28 @@ every Vector test still ran 0.57. The checker now also collects module-level
 `*_IMAGE = "..."` constants from `tests/` and `scripts/`, and
 `timberio/vector` joins the must-agree list; a compose-only Vector bump now
 fails until the test pins move with it.
+
+## 2026-09-16 — dependency batch: Python deps, uv 0.12, setup-uv, Vector 0.58
+
+Landed as one PR instead of merging the dependabot PRs: #22, #23 and #25 all
+rewrite `uv.lock`, and #18–#20 must move together. Checked before merging, not
+inferred from green checks:
+
+- **Python deps.** `mcp` 2.1.1 → 2.2.0 is the one that matters: the `/mcp`
+  endpoint uses the SDK's `streamable_http_app`, `session_manager` and
+  `StreamableHTTPASGIApp`. The full suite (201, minus the three Vector e2e tests
+  this dev host cannot network) passes on the new lock, including the
+  official-client test against a live uvicorn.
+- **uv 0.12.11.** The relocked `uv.lock` (written by uv 0.12.15) still passes
+  `uv lock --check` under uv 0.11.17, so a mixed toolchain during rollout reads
+  it. Upstream 0.12.0 breaking changes don't touch `sync --frozen`, the lock
+  version, or the `UV_*` env vars the Dockerfiles set.
+- **setup-uv v10.1.0.** Pinned SHA `bec219d…` confirmed to be the upstream
+  `v10.1.0` tag commit before copying it in.
+- **Vector 0.58.0.** The 0.58 upgrade guide's breaking changes (removed
+  `azure_monitor_logs` sink, removed buffer metrics, `http_server` encoding,
+  `influxdb_logs` namespace, `logdna` alias, `webhdfs` scheme, templated URI
+  hosts) touch nothing CAIB uses. The test pins move with the compose pin, so
+  CI's Vector end-to-end tests are the verification. `API_NOTES.md` and the
+  HOWTO still say "verified on 0.57.0": that is what was verified then, and is
+  left as history.
