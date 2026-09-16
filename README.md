@@ -77,8 +77,9 @@ make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
 
 ## Agent query layer (optional)
 
-A read-only query surface for LLM agents — an HTTP/JSON API and an MCP stdio
-server over one shared query core.
+A read-only query surface for LLM agents — an HTTP/JSON API and an MCP server
+(Streamable HTTP at `/mcp` on the same service, or stdio) over one shared query
+core.
 
 ```sh
 docker compose --profile agent-api up -d
@@ -93,7 +94,14 @@ see the raw `ingest.*` payloads, and there is no way to acknowledge or close an
 alert through it. Loopback-bound, bearer token required, and it refuses to start
 without one.
 
-Full reference, the grant rationale and how to point an MCP client at it:
+Point an MCP client at the running service with just the token:
+
+```sh
+claude mcp add --transport http caib http://127.0.0.1:8088/mcp \
+  --header "Authorization: Bearer $CAIB_AGENT_API_TOKEN"
+```
+
+Full reference, the grant rationale and the stdio setup:
 **[docs/AGENT_API.md](docs/AGENT_API.md)**.
 
 ## How this compares

@@ -553,3 +553,83 @@ todo #3 is for. `scripts/init_env.sh` does not touch an existing `.env`, so an
 already-deployed stack must add `CAIB_AGENT_RO_PASSWORD` and
 `CAIB_AGENT_API_TOKEN` by hand and re-run `make migrate`; that is documented in
 `docs/AGENT_API.md` but not automated.
+
+## 2026-09-16 — agent query layer: review fixes, and MCP over Streamable HTTP
+
+A second implementation of todo #5 was written in a stale checkout (26 commits
+behind; the local CLAUDE.md still listed #5–#7 as open) before anyone noticed
+PR #16 had merged. It was compared against the merged one instead of pushed,
+and discarded: the merged design wins on the security boundary
+(`caib_agent_ro` with five enumerated grants beats reusing Grafana's
+`caib_ro`, which reads `ingest.*`), on role-level rather than per-connection
+timeouts, on `top_actors` choosing an exact source, and on an SDK-backed MCP
+server. The comparison found four defects in the merged code, each reproduced
+against a live database before fixing, plus one feature worth porting — and a
+fifth defect that only a real compose stack showed.
+
+**`make up` broke for every pre-existing `.env`.** Compose passed
+`CAIB_AGENT_API_TOKEN: ${CAIB_AGENT_API_TOKEN:?set in .env}`. Compose
+interpolates every service whether or not its profile is enabled, so an `.env`
+without the variable fails `docker compose config` — and so `make up` — even for
+someone who never enables `agent-api`. CI missed it because its build job
+generates a fresh `.env` first. Now `:-`; `Settings.from_env` was already the
+real guard (refuses empty or unset). `tests/test_compose_env.py` strips every
+opt-in variable from `.env.example` and runs `config` on the base file and the
+HA overlay; it fails against the old compose file. Rule for future opt-in
+services: required-ness goes in the service's startup check, never in `:?`.
+
+**`actor_activity` over HTTP 404'd for every IAM ARN.** `/v1/actors/{actor}`
+cannot match a `/`, and percent-encoding does not help: the server decodes
+`%2F` before routing. CloudTrail actors are ARNs (`…:user/carol`), so the
+endpoint was unusable for the primary module. Now `{actor:path}`, still
+declared after `/actors/top`. MCP was unaffected (arguments, not paths).
+
+**Open alerts aged out of the default view.** `get_alerts`/`alert_summary`
+filtered every status on `last_seen >= now() - 7d`, and `_window` clamped to the
+90-day *events* retention. An open, unacknowledged root-login alert whose rule
+last matched 10 days ago was absent from `get_alerts?status=open`, and
+`alert_summary` reported `open: 0`; at 120 days no `since` could reach it. But
+`caib_core.retention` deliberately never deletes open or acked alerts — they
+are open cases — so the view contradicted the store. Now: without `since`,
+`status <> 'closed' OR last_seen >= since` (closed alerts keep the 7-day
+default); with an explicit `since`, it applies to every status. Alerts are not
+clamped, and have no upper bound (`last_seen` is a vendor event time and can
+sit slightly ahead of `now()`). The window metadata says which rule applied
+(`applies_to`).
+
+**On a stock compose stack the agent API could never log in.** `migrate` sets
+`caib_agent_ro`'s password from `CAIB_AGENT_RO_PASSWORD`, but compose never
+passed that variable to the `migrate` container: it logged "not set; password
+for role caib_agent_ro left unchanged", the role stayed password-less, and
+`agent-api` retried `password authentication failed` forever while its
+`/healthz` (process-only) reported healthy. Every test calls `migrate.run()`
+with the variable already in the process env, and CI's compose check only
+validates interpolation, so nothing caught it. Found by `up --build` on a
+throwaway project. Now passed with `:-` (opt-in, same reasoning as the token);
+`test_migrate_receives_every_role_password_it_syncs` reads the variable names
+out of `sync_passwords` and asserts compose hands each one to `migrate`.
+
+**`truncated` reported a full page, not remaining rows.** `len(rows) == limit`
+is true when exactly `limit` rows match. Every paged query now fetches
+`limit + 1`.
+
+**MCP over Streamable HTTP, at `/mcp` on the existing service.** stdio needs
+the `caib_agent_ro` password on every agent's machine; HTTP needs only the
+bearer token, which is the credential already meant for agents. Built from the
+SDK (`MCPServer.streamable_http_app(stateless_http=True, json_response=True)`)
+but routed by our FastAPI app so it sits behind the same token check —
+`GuardedMcp`, a small ASGI wrapper, because FastAPI dependencies do not run on
+a raw ASGI route and the SDK's auth hooks are OAuth-shaped. The SDK session
+manager runs inside the app lifespan. Stateless + JSON because the server never
+initiates messages, and it keeps restarts and replicas trivially safe.
+
+The SDK's DNS-rebinding protection is turned **off** and replaced: for a
+`127.0.0.1` host it auto-enables a Host allowlist of localhost names, which
+421s every request arriving through a reverse proxy — the documented way to
+reach this service off-host. `origin_allowed` instead refuses any request whose
+`Origin` is not in `CAIB_AGENT_ALLOWED_ORIGINS` (default empty), on `/v1` as
+well as `/mcp`. Non-browser clients send no Origin; a rebound browser page
+does, and would not hold the token anyway. Tested: a foreign Host is served, a
+foreign Origin is 403 even with the token, and the official SDK client
+(`mcp` 2.1.1, over `httpx2`, against a real uvicorn listener) initializes,
+lists seven tools, and gets both a result and a readable `isError`.
