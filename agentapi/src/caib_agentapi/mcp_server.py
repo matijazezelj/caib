@@ -1,4 +1,4 @@
-"""MCP stdio server over caib_core.query.
+"""MCP server over caib_core.query: stdio here, Streamable HTTP via app.py.
 
 The same seven functions the HTTP API exposes, as MCP tools, over the same
 query core — so an agent gets identical answers and identical refusals whichever
@@ -55,6 +55,12 @@ Since = Annotated[
     str | None,
     Field(description="Start of the window, ISO-8601 (e.g. 2026-09-01T00:00:00Z). "
                       "Naive timestamps are read as UTC. Clamped to 90 days ago."),
+]
+AlertSince = Annotated[
+    str | None,
+    Field(description="Only alerts last seen at or after this, ISO-8601, any status. "
+                      "Omit to get every open and acked alert however old, plus closed "
+                      "alerts from the past 7 days."),
 ]
 Until = Annotated[
     str | None,
@@ -159,7 +165,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
             Field(description="Exact detection rule id, as listed by list_rules "
                               "(e.g. aws_cloudtrail.admin_policy_attached)."),
         ] = None,
-        since: Since = None,
+        since: AlertSince = None,
         limit: Annotated[
             int | None,
             Field(description="Rows to return. Default 100, hard cap 500."),
@@ -170,7 +176,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
             since=since, limit=limit,
         )
 
-    async def alert_summary(since: Since = None) -> dict:
+    async def alert_summary(since: AlertSince = None) -> dict:
         return await run(query.alert_summary, since=since)
 
     async def top_actors(
@@ -235,8 +241,9 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
             "List alerts the detection rules have raised, most recently seen first. An "
             "alert folds every recurrence of the same thing into one row, so read "
             "event_count, first_seen and last_seen together rather than counting rows. "
-            "Filters on last_seen, so a long-running alert still appears in a short "
-            "window. Read-only: there is no way to acknowledge or close an alert here."
+            "Without since: every open and acked alert however old, plus closed alerts "
+            "last seen in the past 7 days. With since: every alert last seen since then, "
+            "any status. Read-only: there is no way to acknowledge or close an alert here."
         ),
     )
     server.add_tool(
@@ -245,7 +252,8 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
         description=(
             "Counts of alerts over a window, broken down by status and by severity. Ask "
             "this first when the question is 'how bad is it right now' — it is one cheap "
-            "query, where get_alerts would page through rows. Defaults to the last 7 days."
+            "query, where get_alerts would page through rows. Without since, counts every "
+            "open and acked alert plus closed ones last seen in the past 7 days."
         ),
     )
     server.add_tool(

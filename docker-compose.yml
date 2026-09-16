@@ -37,6 +37,11 @@ services:
       CAIB_PG_SUPER_URL: postgresql://postgres:${CAIB_PG_SUPERPASS}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_PG_APP_PASSWORD: ${CAIB_PG_APP_PASSWORD:?set in .env}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
+      # migrate is what sets caib_agent_ro's password (sync_passwords). Without
+      # this line the role was created password-less and the agent-api service
+      # could never log in. `:-`, not `:?`: the agent layer is opt-in, and an
+      # .env from before it must still start the core stack.
+      CAIB_AGENT_RO_PASSWORD: ${CAIB_AGENT_RO_PASSWORD:-}
     volumes:
       - ./db/migrations:/app/db/migrations:ro
     depends_on:
@@ -191,8 +196,14 @@ services:
       # this role — SELECT on five tables, no write privilege, a 15s
       # statement_timeout — not of the code in front of it.
       CAIB_RO_PG_URL: postgresql://caib_agent_ro:${CAIB_AGENT_RO_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
-      # No default: an unset or empty token must fail the service, not open it.
-      CAIB_AGENT_API_TOKEN: ${CAIB_AGENT_API_TOKEN:?set in .env}
+      # An unset or empty token must fail the service, not open it — and it
+      # does: Settings.from_env refuses to start. Not `:?` here, because compose
+      # interpolates every service whether or not its profile is enabled, so a
+      # `:?` on this variable broke `make up` for every .env created before the
+      # agent layer existed (tests/test_compose_env.py).
+      CAIB_AGENT_API_TOKEN: ${CAIB_AGENT_API_TOKEN:-}
+      # Browser Origins allowed to call /v1 and /mcp; any other Origin gets 403.
+      CAIB_AGENT_ALLOWED_ORIGINS: ${CAIB_AGENT_ALLOWED_ORIGINS:-}
       # 0.0.0.0 is the container's own namespace, not exposure — the published
       # port below is what decides who can reach this, and it binds to
       # CAIB_BIND_ADDR (loopback by default), same as Postgres and Grafana.

@@ -108,3 +108,23 @@ def test_detect_service_receives_every_documented_knob():
     }
     assert documented, "no detect knobs found in .env.example"
     assert documented <= passed, f"not passed to detect: {sorted(documented - passed)}"
+
+
+def test_migrate_receives_every_role_password_it_syncs():
+    """migrate sets role passwords from env (sync_passwords). CAIB_AGENT_RO_PASSWORD
+    shipped in .env and init_env.sh but was never passed to the migrate
+    container, so caib_agent_ro had no password and agent-api could not log in
+    on a stock compose stack — invisible to tests that call migrate.run() with
+    the variable already in the process env."""
+    import inspect
+    import re
+
+    import yaml
+    from caib_core import migrate
+
+    synced = set(re.findall(r'"(CAIB_[A-Z_]+_PASSWORD)"', inspect.getsource(migrate.sync_passwords)))
+    assert synced >= {"CAIB_PG_APP_PASSWORD", "CAIB_PG_RO_PASSWORD", "CAIB_AGENT_RO_PASSWORD"}
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    passed = set(compose["services"]["migrate"]["environment"])
+    assert synced <= passed, f"not passed to migrate: {sorted(synced - passed)}"
+
