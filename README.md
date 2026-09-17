@@ -22,7 +22,14 @@ make logs      # follow everything
 make down      # stop
 ```
 
-Postgres and Grafana bind to `127.0.0.1` (`CAIB_BIND_ADDR`). Putting this on a
+Development also wants [`uv`](https://docs.astral.sh/uv/):
+
+```sh
+make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
+```
+
+Postgres, Grafana and the optional agent API bind to `127.0.0.1`
+(`CAIB_BIND_ADDR`). Putting this on a
 real host — reverse proxy, TLS, what to monitor — is
 [docs/DEPLOY.md](docs/DEPLOY.md).
 
@@ -58,12 +65,6 @@ trgm-indexed on the hot window:
 Screenshots regenerate via the optional renderer overlay — see
 [`compose.render.yml`](compose.render.yml).
 
-Development also wants [`uv`](https://docs.astral.sh/uv/):
-
-```sh
-make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
-```
-
 ## Stack
 
 | Component | Image | Notes |
@@ -71,7 +72,7 @@ make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
 | Database | `timescale/timescaledb:2.29.2-pg18` | TSL build required (Apache-only build lacks compression/retention/caggs) |
 | Collector | `timberio/vector:0.58.0-debian` | push sources (S3/SQS, Pub/Sub) |
 | Dashboards | `grafana/grafana:13.2.2` | fully provisioned, read-only DB role |
-| Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` entrypoints |
+| Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` / `retention` / `healthcheck` entrypoints |
 | Pollers | `caib-poller` (built here) | one image, `CAIB_MODULE` selects the module |
 | Agent query layer | `caib-agent-api` (built here) | optional; read-only HTTP/JSON + MCP, profile `agent-api` |
 
@@ -126,9 +127,9 @@ from multiple engines over an open table format, or a vendor to call at 3am.
 Those are real requirements and CAIB does not meet them.
 
 **Use CAIB when** the audit logs *are* the point — who changed what in AWS, GCP,
-Azure, Cloudflare, Slack — and you want them in a database you already know how
+Azure, Cloudflare (Slack and others via the module recipes) — and you want them in a database you already know how
 to operate, back up and query, with analyst search that answers in
-milliseconds and a bill that does not scale with ingest.
+well under a second and a bill that does not scale with ingest.
 
 The volume argument is the load-bearing one. Cloud and SaaS *audit* logs are
 orders of magnitude smaller than host or network telemetry: a workload that fits
@@ -175,8 +176,8 @@ make ha-down
 
 The HA overlay (`compose.ha.yml`) runs three `timescale/timescaledb-ha` nodes
 (TSL TimescaleDB + Patroni) with etcd as DCS and HAProxy in front: writers use
-`:5000` (primary only), Grafana uses `:5001` (replicas *and* primary, so
-dashboards survive replica loss). Timescale's compression/retention/cagg jobs
+`:5000` (primary only), Grafana and the agent API use `:5001` (replicas *and*
+primary, so reads survive replica loss). Timescale's compression/retention/cagg jobs
 follow the primary automatically — they're catalog state, not node state.
 
 **Promoting the lab overlay to real hosts:**
@@ -229,7 +230,7 @@ Docker).
 ## Release confidence checklist
 
 ```sh
-make test               # 189 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
+make test               # ~200 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
 make bench              # measured ingest/compression/query numbers -> bench/results/
 make ha-failover-test   # kills the primary under write load; asserts zero loss
 make restore-test       # backup -> scratch restore -> license/marker/count assertions
