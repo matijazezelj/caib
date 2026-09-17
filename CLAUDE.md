@@ -69,7 +69,7 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
   3.12-compatible (`requires-python >=3.12`, ruff `py312`). uv workspace: root +
   `core/` + `pollers/` + `agentapi/`.
   `uv run pytest -q` / `uv run ruff check .` — ruff is strict; run it before
-  every commit. Tests need Docker (throwaway `timescale/timescaledb:2.29.2-pg18`
+  every commit. Tests need Docker (throwaway `timescale/timescaledb:2.30.0-pg18`
   container per session; CI uses a service container).
 - `make up` auto-creates `.env` with **generated** passwords
   (`scripts/init_env.sh`); `scripts/preflight.sh` then refuses to start if the
@@ -79,7 +79,7 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
   / `make down`. Volumes persist across down/up.
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`
   (needs `make ha-up` first), `make restore-test`.
-- Images pinned: timescaledb 2.29.2-pg18 (TSL — never the `-oss` builds, CI
+- Images pinned: timescaledb 2.30.0-pg18 (TSL — never the `-oss` builds, CI
   asserts the license), vector 0.58.0-debian, grafana 13.2.2, HA nodes
   `timescale/timescaledb-ha:pg18.6-ts2.30.0` (ships Patroni + pgBackRest +
   pg_textsearch). pg19 has no TimescaleDB build yet.
