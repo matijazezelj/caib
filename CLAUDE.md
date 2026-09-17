@@ -10,7 +10,7 @@ decisions and working agreements that still bind).
 
 Spec phases 0–8 are done, tested, and pushed (`github.com/matijazezelj/caib`,
 main). Phase 9 (Iceberg archive tier) is deliberately unbuilt. Two external
-review rounds passed; verdict: "shippable, put real logs into it." 70 tests,
+review rounds passed; verdict: "shippable, put real logs into it." ~200 tests,
 CI green, Apache-2.0.
 
 Read in this order: `README.md` (what exists + measured numbers) →
