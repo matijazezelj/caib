@@ -260,11 +260,42 @@ def _connect_with_retry(url: str, timeout_s: float) -> psycopg.Connection:
             time.sleep(2)
 
 
+def update_extension(conn: psycopg.Connection) -> None:
+    """Bring an existing database's timescaledb extension up to the image's.
+
+    Swapping the image does not upgrade a database: a volume created on
+    2.29.2 keeps running the 2.29.2 library the new image still ships, and
+    `CREATE EXTENSION IF NOT EXISTS` in bootstrap() does nothing about it.
+    `ALTER EXTENSION timescaledb UPDATE` has to be the FIRST statement of a
+    session — anything before it, even a catalog read of extversion, loads the
+    old library and the update then refuses ("cannot be updated after the old
+    version has already been loaded"). Hence a dedicated fresh connection,
+    and an unconditional update: it is a no-op NOTICE when already current,
+    and "does not exist" on a database bootstrap has not created it in yet.
+
+    Sessions other services opened before this ran (loader, detect,
+    agent-api) keep the old library until they reconnect — see docs/DEPLOY.md.
+    """
+    try:
+        conn.execute("ALTER EXTENSION timescaledb UPDATE")
+    except psycopg.errors.UndefinedObject:
+        return  # fresh database; bootstrap() creates it at the image's version
+    version = conn.execute(
+        "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
+    ).fetchone()[0]
+    log.info("timescaledb extension at %s", version)
+
+
 def run(super_url: str, migrations_dir: pathlib.Path, wait_s: float = 0) -> int:
-    with (
-        _connect_with_retry(super_url, wait_s) if wait_s
-        else psycopg.connect(super_url, autocommit=True)
-    ) as conn:
+    def connect() -> psycopg.Connection:
+        return (
+            _connect_with_retry(super_url, wait_s) if wait_s
+            else psycopg.connect(super_url, autocommit=True)
+        )
+
+    with connect() as conn:
+        update_extension(conn)
+    with connect() as conn:
         bootstrap(conn)
         count = apply_pending(conn, migrations_dir)
         sync_passwords(conn)

@@ -773,3 +773,43 @@ throwaway compose stack on 3.14 came up healthy (loader, detect, agent-api),
 seeded demo data, and answered `/v1` and `/mcp`. The local test suite ran on
 3.14.7 all session (202 passing, excluding the three Vector e2e tests this dev
 host cannot network).
+
+## 2026-09-16 — TimescaleDB 2.30.0, and migrate now updates the extension
+
+Upstream 2.30.0 lists no backward-incompatible changes or deprecations touching
+compression, retention, continuous aggregates, the jobs views or GIN indexes
+(two new GUCs, both harmless). The bump itself is a pin change across the seven
+places that name the image (compose, backup/Dockerfile, CI service container,
+tests/conftest.py, scripts/bench.py, README, CLAUDE.md).
+
+**The upgrade was the real work.** Verified in a 2.30.0 container: the image
+still ships the 2.29.x libraries, so an existing volume keeps running 2.29.2 —
+silently — and bootstrap's `CREATE EXTENSION IF NOT EXISTS` never changes that.
+`ALTER EXTENSION timescaledb UPDATE` is accepted only as the first statement of
+a session: after `SELECT count(*) FROM pg_class`, and even after reading
+`extversion` from `pg_extension`, it fails with "cannot be updated after the
+old version has already been loaded". So `migrate.run` now opens a dedicated
+connection whose first statement is the unconditional update (a NOTICE no-op
+when current; `UndefinedObject` on a fresh database, where bootstrap creates it
+at the image version), then bootstraps on a second connection. CI's fresh
+databases could never have caught the gap; `test_migrate_updates_an_older_
+timescaledb_extension` builds one from `template0` (template1 carries the
+image's version), installs the newest older version the image ships, and
+asserts migrate brings it to the default. It fails without the change
+(2.29.1 != 2.29.2 on the old image).
+
+Rehearsed on a real volume: a demo-seeded 2.29.2 stack with 28 compressed
+chunks, switched to the 2.30.0 image with `up -d`. migrate logged
+"timescaledb extension at 2.30.0"; all 1996 events and 28 compressed chunks
+were intact; cagg refresh, trgm search, the compression policy job and
+loader/detect heartbeats all worked after `restart loader detect`.
+
+Long-lived sessions opened before migrate ran (loader, detect, agent-api) keep
+the old library until they reconnect; docs/DEPLOY.md §8 says to restart them.
+Not automated: a migrate that restarts its siblings is a different design.
+
+The HA image (`timescaledb-ha` → `pg18.6-ts2.30.0`) already moved in the HA PR
+(#33), where this branch's migrate was run against the HA cluster: the extension
+updated to 2.30.0 through HAProxy and replicated to both replicas.
+Also removed three stale "known rough edges" from DEPLOY.md (root containers,
+`pip install .`, no dependabot) that the supply-chain round had already fixed.
