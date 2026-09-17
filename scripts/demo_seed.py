@@ -232,13 +232,11 @@ def main() -> None:
         detect.validate_rules(conn, rules)
         cfg = detect.Cfg.from_env()
         cfg.safety_lag_s = 0  # demo wants the just-seeded events in-window
-        fired = 0
         for rule in rules:
             if not rule.enabled:
                 continue
             stats = detect.evaluate_rule(conn, rule, cfg)
             if stats and stats["rows"]:
-                fired += stats["rows"]
                 print(f"  rule {rule.id}: {stats['rows']} alert(s)")
         notify.drain(conn, cfg.webhook_url, fmt=cfg.notify_format)
 
