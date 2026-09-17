@@ -120,4 +120,3 @@ def test_migrate_updates_an_older_timescaledb_extension(pg_server_url: str, role
     finally:
         with psycopg.connect(pg_server_url, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{dbname}" WITH (FORCE)')
-

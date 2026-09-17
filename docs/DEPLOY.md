@@ -161,4 +161,3 @@ Take a backup first (`docs/BACKUPS.md`); extension updates are not reversible.
 **etcd (HA overlay).** etcd only upgrades one minor version at a time, and 3.7
 requires the cluster to be on 3.6.11 or later first. See the HA notes in the
 README before bumping `coreos/etcd` on an existing `etcd_data` volume.
-
