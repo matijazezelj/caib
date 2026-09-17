@@ -1,7 +1,7 @@
 COMPOSE ?= docker compose
 COMPOSE_HA ?= docker compose -f docker-compose.yml -f compose.ha.yml
 
-.PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test new-module
+.PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test restore-test new-module
 
 .env:
 	@bash scripts/init_env.sh

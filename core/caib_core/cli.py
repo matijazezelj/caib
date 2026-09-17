@@ -1,5 +1,4 @@
 import argparse
-import sys
 
 
 def main() -> None:
@@ -45,6 +44,3 @@ def main() -> None:
         from caib_core import heartbeat
 
         heartbeat.main(["--service", args.service, "--max-age", str(args.max_age)])
-    else:
-        print(f"caib-core {args.cmd}: not implemented yet", file=sys.stderr)
-        raise SystemExit(2)

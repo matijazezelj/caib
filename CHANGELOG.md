@@ -12,6 +12,17 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Cleanup
+
+- Removed dead code: `caib_core/db.py` (never imported since Phase 0), an
+  unreachable "not implemented" branch in the `caib-core` CLI, an unused
+  counter in `scripts/demo_seed.py`; committed `.DS_Store` files and `.gitkeep`
+  placeholders in directories that have content.
+- README: corrected stale facts (test count, entrypoints, what binds to
+  loopback, which services read through HAProxy `:5001`, search latency,
+  Slack not being a shipped module) and moved the dev/test note into
+  Quickstart.
+
 ### Python 3.14
 
 - All three images on `python:3.14-slim` (supersedes #31). `.python-version`
