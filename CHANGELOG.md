@@ -12,6 +12,16 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### TimescaleDB 2.30.0
+
+- `timescale/timescaledb` 2.30.0-pg18 everywhere the single-node image is named
+  (supersedes #17 and the backup-image part of #29).
+- `migrate` now runs `ALTER EXTENSION timescaledb UPDATE` in a fresh session on
+  every start. Before, an existing database stayed on its old extension version
+  after an image bump. **Upgrading:** `make up`, then
+  `docker compose restart loader detect` (and agent-api/pollers) — see
+  `docs/DEPLOY.md` §8.
+
 ### Cleanup
 
 - Removed dead code: `caib_core/db.py` (never imported since Phase 0), an

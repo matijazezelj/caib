@@ -1,4 +1,5 @@
 import pathlib
+import uuid
 
 import psycopg
 import pytest
@@ -72,3 +73,50 @@ def test_duplicate_migration_numbers_rejected(pg_db_url: str, role_passwords, tm
     (migrations / "0001_b.sql").write_text("SELECT 1;")
     with pytest.raises(SystemExit):
         migrate.run(pg_db_url, migrations)
+
+
+def test_migrate_updates_an_older_timescaledb_extension(pg_server_url: str, role_passwords):
+    """A volume created on an older image stays on the older extension after
+    an image bump until ALTER EXTENSION ... UPDATE runs as the first statement
+    of a session. migrate must do that, and stay a no-op once current."""
+    dbname = f"caib_t_ext_{uuid.uuid4().hex[:10]}"
+    base, _, _ = pg_server_url.rpartition("/")
+    url = f"{base}/{dbname}"
+    with psycopg.connect(pg_server_url, autocommit=True) as conn:
+        # template0: the timescale image pre-installs the current version in
+        # template1, which would leave nothing to update.
+        conn.execute(f'CREATE DATABASE "{dbname}" TEMPLATE template0')
+    try:
+        with psycopg.connect(url, autocommit=True) as conn:
+            default, older = conn.execute(
+                "SELECT (SELECT default_version FROM pg_available_extensions"
+                "        WHERE name = 'timescaledb'),"
+                "       array_agg(version ORDER BY string_to_array(version, '.')::int[] DESC)"
+                " FROM pg_available_extension_versions"
+                " WHERE name = 'timescaledb' AND version ~ '^[0-9]+[.][0-9]+[.][0-9]+$'"
+                "   AND string_to_array(version, '.')::int[] < string_to_array("
+                "     (SELECT default_version FROM pg_available_extensions"
+                "      WHERE name = 'timescaledb'), '.')::int[]"
+            ).fetchone()
+        installed = None
+        for candidate in older or []:
+            try:
+                # Fresh session per attempt: a failed load poisons the session.
+                with psycopg.connect(url, autocommit=True) as conn:
+                    conn.execute(f"CREATE EXTENSION timescaledb VERSION '{candidate}'")
+                installed = candidate
+                break
+            except psycopg.Error:
+                continue
+        assert installed, f"image ships no installable timescaledb older than {default}"
+
+        migrate.run(url, pathlib.Path("/nonexistent"))
+        migrate.run(url, pathlib.Path("/nonexistent"))  # already current: no-op
+
+        with psycopg.connect(url) as conn:
+            assert conn.execute(
+                "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
+            ).fetchone()[0] == default
+    finally:
+        with psycopg.connect(pg_server_url, autocommit=True) as conn:
+            conn.execute(f'DROP DATABASE IF EXISTS "{dbname}" WITH (FORCE)')
