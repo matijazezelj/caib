@@ -130,11 +130,34 @@ Do not edit the migrations — they are append-only and already applied.
 
 Honest list, so nothing here is a surprise in an audit:
 
-- **Containers run as root.** Neither first-party image sets `USER`.
-- The images are built with `pip install .`, not from `uv.lock`, so a rebuild
-  is not byte-identical to what CI tested.
-- No image pinning automation (no dependabot/renovate): the six pinned images
-  are only as current as the last manual bump.
+- Image pins are bumped by dependabot, but copies it cannot see (the CI service
+  container, image constants in `tests/` and `scripts/`) are only held
+  together by `scripts/check_image_pins.sh` failing CI when they disagree.
 - The HA overlay runs a **single** etcd node — fine for a lab, a single point
   of failure anywhere real. See the HA section of the README.
 - `make restore-test` is the only proof your backups work. Run it.
+
+## 8. Upgrading images
+
+Pull, then recreate: `docker compose pull && make up` (or `up -d --build`).
+Two images need more than that.
+
+**TimescaleDB.** A new image does not upgrade an existing database: the volume
+keeps running the extension version it was created with (the image ships the
+old library for exactly that reason). `migrate` runs
+`ALTER EXTENSION timescaledb UPDATE` as the first statement of its own session
+on every start, which is the only way the update is accepted. Sessions that
+other services opened before `migrate` ran keep the old library loaded, so
+restart them afterwards:
+
+```sh
+make up                                     # migrate updates the extension
+docker compose logs migrate | grep 'timescaledb extension at'
+docker compose restart loader detect        # plus agent-api / pollers if running
+```
+
+Take a backup first (`docs/BACKUPS.md`); extension updates are not reversible.
+
+**etcd (HA overlay).** etcd only upgrades one minor version at a time, and 3.7
+requires the cluster to be on 3.6.11 or later first. See the HA notes in the
+README before bumping `coreos/etcd` on an existing `etcd_data` volume.
