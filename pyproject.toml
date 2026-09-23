@@ -9,7 +9,7 @@ dev = [
     "pytest>=8",
     "ruff>=0.16.7",
     "pyyaml>=6",
-    "boto3>=1.43.93",
+    "boto3>=1.43.98",
 ]
 
 [tool.uv]
