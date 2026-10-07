@@ -8,7 +8,7 @@ dependencies = [
     # [pool] pulls psycopg_pool; both transports hold a small pool rather than
     # reconnecting per request.
     "psycopg[binary,pool]>=3.3.5",
-    "fastapi>=0.115",
+    "fastapi>=0.142.2",
     "uvicorn>=0.30",
     # 2.x, not 1.x: this uses MCPServer, Tool.input_schema and
     # mcp.server.mcpserver.exceptions.ToolError, none of which exist in 1.x.
