@@ -139,7 +139,7 @@ services:
     restart: unless-stopped
 
   vector-aws-cloudtrail:
-    image: timberio/vector:0.58.0-debian
+    image: timberio/vector:0.60.0-debian
     profiles: ["aws_cloudtrail"]
     command:
       - --config
@@ -162,7 +162,7 @@ services:
     restart: unless-stopped
 
   vector-gcp-audit:
-    image: timberio/vector:0.58.0-debian
+    image: timberio/vector:0.60.0-debian
     profiles: ["gcp_audit"]
     command:
       - --config
