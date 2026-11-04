@@ -226,7 +226,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.2.2
+    image: grafana/grafana:13.3.0
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${CAIB_GRAFANA_ADMIN_PASSWORD:?set in .env}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
