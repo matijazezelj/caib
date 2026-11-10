@@ -12,6 +12,14 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Model-selection guidance
+
+- `docs/AGENT_API.md`: which Claude model and effort to point at the agent
+  layer, per job (unmeasured starting points).
+- MCP: `get_alerts` / `top_actors` descriptions route to the follow-up tool;
+  `list_rules` reports a missing rules directory legibly.
+- `.claude/agents/`: `check-runner` (Haiku) and `module-reviewer` (Sonnet).
+
 ### TimescaleDB 2.30.0
 
 - `timescale/timescaledb` 2.30.0-pg18 everywhere the single-node image is named

@@ -58,6 +58,11 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 - The user reviews via external reviewers and pastes their feedback; treat it
   as actionable, but check claims against the repo first (one reviewer wrongly
   said the bench never ran).
+- Model routing: the main session keeps edits and decisions. The repo's
+  `.claude/agents/` route reading work cheaper: `check-runner` (Haiku) runs
+  ruff/pytest and reports failures, and `module-reviewer` (Sonnet) runs one
+  per module for parallel reviews. Advice on which model to point at the
+  agent layer is in `docs/AGENT_API.md` ("Which Claude model to point at it").
 - Screenshots in `docs/img/` are part of the README; regenerate after UI
   changes via the `compose.render.yml` overlay (grafana-image-renderer
   sidecar), then remove the renderer. Reviewers consider the dashboards
