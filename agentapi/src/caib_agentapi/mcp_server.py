@@ -213,7 +213,15 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     async def list_rules() -> dict:
         # No pool: the rule set is YAML on disk, read through the same call the
         # detection engine makes. See caib_core.query.list_rules.
-        return await anyio.to_thread.run_sync(query.list_rules)
+        try:
+            return await anyio.to_thread.run_sync(query.list_rules)
+        except query.QueryError as exc:
+            # Same legibility contract as run(): a missing rules directory is an
+            # operator problem the agent should report, not a generic tool error.
+            raise ToolError(
+                f"{exc}. The rule set is not available to this server; retrying will "
+                "not help — report it to the operator."
+            ) from exc
 
     server = MCPServer(
         name="caib",
@@ -243,7 +251,10 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
             "event_count, first_seen and last_seen together rather than counting rows. "
             "Without since: every open and acked alert however old, plus closed alerts "
             "last seen in the past 7 days. With since: every alert last seen since then, "
-            "any status. Read-only: there is no way to acknowledge or close an alert here."
+            "any status. Read-only: there is no way to acknowledge or close an alert here. "
+            "To see the events behind an alert, call search_events with since=first_seen, "
+            "until just after last_seen, and the actor or target named in its entity; "
+            "list_rules explains what its rule_id looks for."
         ),
     )
     server.add_tool(
@@ -264,7 +275,9 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
             "most, and who is failing the most. Good for spotting a service account "
             "gone wrong or a brute-force pattern. Defaults to the last 24 hours. Reads a "
             "pre-aggregated hourly rollup when the window starts on an hour boundary and "
-            "counts raw events otherwise; the answer says which in 'source'."
+            "counts raw events otherwise; the answer says which in 'source'. One row per "
+            "(actor, module), so an actor active in two modules appears twice. Follow up "
+            "with actor_activity for one actor's detail."
         ),
     )
     server.add_tool(

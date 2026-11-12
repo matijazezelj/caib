@@ -245,6 +245,48 @@ Or without Docker, from a checkout with the workspace synced:
 
 Logs go to stderr, because stdout is the transport.
 
+### Which Claude model to point at it
+
+CAIB never calls a model. The agent layer serves whatever client you connect.
+These are starting points from Anthropic's model-selection guidance (November
+2026). None of them has been measured against CAIB data yet. Measure on
+your own alerts before settling (see the last item).
+
+| Job | Start with | Effort | Why |
+| --- | --- | --- | --- |
+| Interactive triage ("what's open, who did it?") | Sonnet 5.5 | `low`–`medium` | A person is waiting; the tools return pre-capped answers |
+| Repeated investigation, one alert per run | Sonnet 5.5 | `medium` | Well-defined, repeated task |
+| Bulk tagging/classifying alerts or events | Haiku 5.5 | `medium` | High volume, checkable output; keep prompts under 100K tokens (Haiku costs 5× more above that) |
+| Open-ended incident reconstruction across modules | Opus 5.5 | `medium`, then `high` | Long multi-tool loop where a wrong conclusion is costly |
+| Unsure | Opus 5.5 | `medium` | Recommended default |
+
+- **Tune effort before you switch models.** If an answer is wrong, first give
+  the agent a way to check itself, for example by having it re-query
+  `search_events` for the events behind an alert's `event_count`. Then raise
+  effort one level. Only after that move up a model, and start the bigger
+  model at a lower effort. Above `high`, one more effort level can cost as
+  much as the next model.
+- **Keep the lead model's context lean.** Give bulk reading (a long
+  `actor_activity` timeline, many `search_events` pages) to a cheaper subagent
+  that returns a summary. Keep the conclusion with the main model.
+- **Expect safety fallbacks on security content.** Opus 5.5, Sonnet 5.5 and
+  Fable 5.2 run safety classifiers, and audit logs read like cybersecurity
+  material. In Claude Code, a flagged request can re-run on an older model,
+  and the transcript shows a notice. Fable 5.2 falls back to Opus 4.8 for
+  flagged cybersecurity requests. If answers change quality partway through a
+  session, look for that notice.
+- **If you write your own API client:** use `tool_choice: "auto"`. Forcing
+  `any` or `tool` returns 400 on Sonnet 5.5, Opus 5.5 and Fable 5.2. Read
+  content blocks by `type`, because a response can start with a thinking
+  block. Keep history append-only, which Fable 5.2's preserved thinking
+  requires.
+- **Measure it.** Collect a few real alerts, each with a known right answer
+  ("closed as benign", "this actor, these three events"). Run each candidate
+  model at two effort levels in separate sessions. Record cost per correct
+  answer from the responses' `usage`, and keep the cheapest setup that
+  scores as well as the best one. Record the result in `DECISIONS.md`. This
+  is part of todo #3, dogfooding.
+
 ## Semantics worth knowing before you trust an answer
 
 - **Times are UTC** everywhere, in and out. Naive timestamps are read as UTC.

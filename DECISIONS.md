@@ -813,3 +813,41 @@ The HA image (`timescaledb-ha` → `pg18.6-ts2.30.0`) already moved in the HA PR
 updated to 2.30.0 through HAProxy and replicated to both replicas.
 Also removed three stale "known rough edges" from DEPLOY.md (root containers,
 `pip install .`, no dependabot) that the supply-chain round had already fixed.
+
+## 2026-11-10 — Model-selection guidance applied: agent docs, MCP descriptions, project subagents
+
+Applied Anthropic's "which Claude model should you build with" guidance
+(November 2026). CAIB calls no model itself, so it lands in three places:
+
+- `docs/AGENT_API.md` gains "Which Claude model to point at it". It lists a
+  starting model and effort per job: Sonnet 5.5 for triage and repeated
+  investigation, Haiku 5.5 for bulk tagging, Opus 5.5 for open-ended
+  reconstruction. It also gives the escalation order (self-check, then
+  effort, then model), the safety-classifier fallback caveat (audit logs read
+  as cybersecurity content), and the API-client gotchas: `tool_choice: auto`
+  and content blocks read by type. **Unmeasured.** These are the vendor's
+  defaults, not CAIB results. Measuring them belongs to todo #3.
+- MCP tool descriptions now route between tools. `get_alerts` says how to get
+  to the events behind an alert, and `top_actors` says it returns one row per
+  (actor, module) and points at `actor_activity`. `list_rules` now raises a
+  `ToolError` for a missing rules directory, where before it escaped as a
+  generic "Error executing tool".
+- `.claude/agents/`: `check-runner` (Haiku) runs ruff/pytest and reports
+  failures; `module-reviewer` (Sonnet) runs one per module in parallel.
+
+A Sonnet review of the MCP surface against the same guidance raised more
+issues. They are deferred because each changes behaviour, which is the
+user's call:
+- `module` is not validated, so `module="aws"` returns zero rows. That is
+  the same empty-means-nothing-happened failure the severity check exists to
+  prevent.
+- Default page sizes (100 events, 200 for actor_activity) with full `attrs`
+  can use a lot of an agent's context. Options: smaller defaults, or
+  opt-in `attrs`.
+- A truncated page has no continuation cursor (`next_until`).
+- `top_actors` has no `until`, so past incidents can't be bracketed.
+- `q` is not escaped, so `_` matches any character.
+- `list_rules` returns `source` (a server filesystem path) that its
+  description does not mention.
+- Enums are prose in the schema rather than `Literal`. They are still
+  rejected server-side with a clear error.
