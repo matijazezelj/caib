@@ -11,9 +11,9 @@
 # different role. Keeping the web stack out of the writers' image is worth one
 # more copy of two pins that scripts/check_image_pins.sh already forces to agree
 # with core's and pollers'.
-FROM ghcr.io/astral-sh/uv:0.12.15 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.9 AS uv
 
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /app
@@ -31,7 +31,7 @@ COPY agentapi/src agentapi/src
 
 RUN uv sync --frozen --no-dev --no-editable --package caib-agentapi
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 WORKDIR /app
 
 RUN groupadd --system --gid 10001 caib \
