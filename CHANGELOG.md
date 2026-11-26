@@ -12,6 +12,18 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### HA failover: detection continuity
+
+- `make ha-failover-test` now asserts detection keeps working across a
+  failover: an alert before the kill, a new alert within 240s after
+  promotion, exact alert event_count vs events (nothing lost or
+  double-counted), one notification per alert, and loader/detect heartbeats
+  advancing on the new primary. Measured: first post-failover alert ~130s
+  after the primary stop.
+- `ha_inserter.py`: event_time fixed per sequence number across retries, so
+  a retried ambiguous commit can't become a duplicate event.
+- A failed failover run restarts the stopped node on exit.
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent
