@@ -311,9 +311,10 @@ knobs in `.env` — `0` on any of them means keep forever:
 
 ## Releases
 
-[v0.1.0](https://github.com/matijazezelj/caib/releases/tag/v0.1.0) is the
-first tag. It is a **pre-release**: everything is tested against fixtures and in
-CI, but no module has met a real cloud account yet. See
+The latest tag is
+[v0.2.0](https://github.com/matijazezelj/caib/releases/tag/v0.2.0), a
+**pre-release** like v0.1.0 before it. Everything is tested against fixtures
+and in CI, but no module has met a real cloud or SaaS account yet. See
 [CHANGELOG.md](CHANGELOG.md) for what is in it, and report vulnerabilities per
 [SECURITY.md](SECURITY.md).
 
@@ -323,7 +324,7 @@ Tags are signed with the maintainer's SSH key, the ed25519 key listed at
 
 ```sh
 curl -s https://github.com/matijazezelj.keys | sed 's/^/matijazezelj /' > /tmp/caib_signers
-git -c gpg.ssh.allowedSignersFile=/tmp/caib_signers tag -v v0.1.0
+git -c gpg.ssh.allowedSignersFile=/tmp/caib_signers tag -v v0.2.0
 ```
 
 It should report a good signature from the fingerprint above.

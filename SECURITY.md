@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The latest tag (currently `v0.1.0`, a pre-release) and `main` are supported.
+The latest tag (currently `v0.2.0`, a pre-release) and `main` are supported.
 Fixes land on `main` and go out in the next tag; older tags get no backports
 while the project is pre-1.0. Private reports can also go through GitHub's
 private vulnerability reporting on this repository.

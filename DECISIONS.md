@@ -1165,3 +1165,12 @@ Negative controls:
   The combined branch passed ruff and pytest (309), `make demo` with all
   seven modules (9046 events, 40 alerts, 0 dead letters), `make restore-test`
   (9046 restored) and `make ha-failover-test` before anything merged.
+
+## 2026-11-26 — v0.2.0, again a signed pre-release
+
+v0.2.0 adds the v0.2 P1 work: the `github_audit`, `slack_audit` and
+`google_workspace` modules, the HA hard-kill and partition tests, and read-only
+MCP annotations. It is a pre-release for the same reason as v0.1.0: no module
+has met a real account (planned next, with temporary test accounts). The
+workspace packages move to 0.2.0. Tag signing and verification are unchanged
+(README "Releases").
