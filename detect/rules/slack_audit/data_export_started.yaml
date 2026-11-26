@@ -1,0 +1,26 @@
+# Written from scratch for CAIB (no SigmaHQ basis). A workspace/org export
+# (standard, corporate, scheduled, per-channel or user list) copies message
+# history or the member directory out of Slack in one step, and enabling
+# corporate exports widens what such an export contains (private channels and
+# DMs). Legitimate exports are rare and planned, so each one is worth a look.
+id: slack_audit.data_export_started
+enabled: true
+module: slack_audit
+title: "Slack data export started or enabled"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || action || '|' || coalesce(attrs->>'location_id', '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'export_action', action,
+                       'location', attrs->>'location_name')            AS entity,
+    jsonb_build_object('events', count(*)::int)                        AS context,
+    max(event_time)                                                    AS last_event_time
+  FROM caib.events
+  WHERE module = 'slack_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('manual_export_started', 'scheduled_export_started',
+                   'channels_export_started', 'manual_user_export_started',
+                   'corporate_exports_enabled', 'corporate_exports_approved')
+  GROUP BY actor, action, attrs->>'location_id', attrs->>'location_name'

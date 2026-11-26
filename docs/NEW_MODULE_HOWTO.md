@@ -177,36 +177,44 @@ Best-known details as of 2026-08-24, **not yet verified against live APIs** —
 verifying them (and recording results in API_NOTES.md) is step one of each
 build. Table stakes from the spec plus implementation notes.
 
-## slack_audit (poller)
+## slack_audit (poller) — BUILT (SYNTHETIC, live verification pending)
 
-- **Endpoint**: `GET https://api.slack.com/audit/v1/logs` — note: hosted on
-  `api.slack.com` directly, not the usual `slack.com/api/` methods family.
-- **Auth**: Enterprise Grid **org-level** user token with `auditlogs:read`
-  (install the app at org level; a workspace token will not work). Header
-  `Authorization: Bearer xoxp-...`. Testing needs a Grid org — this is why the
-  module was deferred.
-- **Params**: `oldest`/`latest` (unix seconds), `limit` (max 9999), `cursor`
-  for pagination; optional server-side filters `action`, `actor`, `entity`.
-- **Pagination**: `response_metadata.next_cursor` (empty string = done) — same
-  windowed pattern as cloudflare_audit, with unix-seconds windows.
-- **Entry shape**: `{id, date_create (unix), action, actor{type, user{id,
-  email, name}}, entity{type, <type-specific object>}, context{location{type,
-  id, name, domain}, ua, ip_address, session_id}, details{...varies}}`.
-- **Mapping**: `id`→event_id (dedup); `date_create`→event_time (convert unix →
-  RFC3339); `actor.user.email` (fallback `actor.user.id`)→actor;
-  `context.ip_address`→src_ip; `action`→action; entity's inner object id/name
-  →target; outcome `success` (entries record completed actions); attrs:
-  `entity_type`, `location_type`, `location_name`, `location_domain`,
-  `details_type` (from `details.type` when present — verify this carries the
-  new role for `user_role_changed`).
-- **Seed rules**: `user_role_changed` where details indicate admin/owner;
-  `app_installed` / `app_scopes_expanded`; org/workspace preference changes
-  (action LIKE `pref.%` — covers sharing-settings changes; verify exact pref
-  action names live); bulk `file_downloaded` per actor (threshold, ≥10/30m);
-  dead-man 6h (Grid orgs are chatty; small orgs may want 24h).
-- **Verify live**: max `limit`; whether `details` is stable enough for the
-  role-change rule; rate-limit tier of the audit endpoint; whether entries can
-  arrive out of order (affects window lag — start with 300s).
+Built 2026-11-26: `pollers/caib_pollers/modules/slack_audit.py`, and
+`modules/slack_audit/API_NOTES.md` is now the source of truth. The recipe was
+checked against docs.slack.dev and the unauthenticated `/audit/v1/schemas` and
+`/actions` endpoints. Corrections to the 2026-08-24 version:
+
+- **Auth**: the token must belong to an Enterprise **Org Owner**. Org Admin
+  tokens are explicitly not supported (`user_not_authorized`). The rest stood:
+  an org-level install, a user token with `auditlogs:read`, and `Bearer xoxp-...`.
+- **There is no `user_role_changed` action.** The new role is in the action
+  name: `role_change_to_admin`, `role_change_to_owner`, `owner_transferred`,
+  `role_assigned` (custom admin roles), and so on. No `details` parsing is
+  needed, and the planned `details_type` attr was dropped: `details` has no
+  documented `type` key.
+- **Params**: `oldest`/`latest` are **both inclusive**, so the next window
+  starts AT the previous `latest` (1s overlap, dedup absorbs it). Default order
+  is **descending**. `limit` max 9999 is confirmed, but it is "optimistic" (it can
+  return more when timestamps tie). The module asks for 1000.
+- **Cursors expire** (Slack: "do not persist cursors for hours or days"). The
+  framework persists them, so a 400 while paging restarts the window instead of
+  crash-looping.
+- **Rate limit**: Tier 3, about 50 calls/min, counted **per organization**, so
+  it is shared with any other SIEM polling the same org.
+- **Errors** (checked live, no auth): a missing token gets HTTP 400 and a bad
+  token gets HTTP 401, both with an empty body.
+- **`file_downloaded` also fires on in-app views**, so ≥10 per 30 min was far too
+  noisy. The rule now needs ≥50 *distinct* files per actor in 30 minutes.
+- **Better seed rule found**: Slack's own `anomaly` action (Tor, IOC-listed
+  IPs, session-fingerprint mismatch, scraping) with `details.reason[]`. It is
+  surfaced as `attrs.anomaly_reasons`.
+- `pref.%` alone was too broad: there are 100+ prefs, mostly cosmetic. The
+  auth-settings rule names specific actions instead (SSO, 2FA, session length,
+  IP ranges, IdP config). A separate rule covers exports
+  (`manual_export_started`, `corporate_exports_enabled`, …).
+- **Sandbox**: the Slack Developer Program offers a free Enterprise sandbox.
+  Whether it serves audit logs is the first item on the verify-live list, and
+  it may remove the need for a production Grid org.
 
 ## zoom (poller, two streams under one module)
 

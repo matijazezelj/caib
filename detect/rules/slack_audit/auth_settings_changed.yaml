@@ -1,0 +1,33 @@
+# Written from scratch for CAIB (no SigmaHQ basis). Changes to the org's
+# sign-in controls: SSO enforcement, 2FA requirement, SMS 2FA, session length,
+# allowed IP ranges, the IdP configuration itself, and which anomalies
+# auto-end sessions. Each one can quietly weaken every account at once. The
+# rule fires on any change, both directions: details carries previous/new
+# values but its key names are not documented (see API_NOTES), so the rule
+# does not try to tell weakening from hardening; triage reads raw.details.
+id: slack_audit.auth_settings_changed
+enabled: true
+module: slack_audit
+title: "Slack authentication/session security setting changed"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || action || '|' || coalesce(attrs->>'location_id', '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'setting', action,
+                       'location', attrs->>'location_name')            AS entity,
+    jsonb_build_object('events', count(*)::int)                        AS context,
+    max(event_time)                                                    AS last_event_time
+  FROM caib.events
+  WHERE module = 'slack_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('pref.sso_setting_changed', 'pref.two_factor_auth_changed',
+                   'pref.two_factor_prevent_sms_changed',
+                   'pref.session_duration_changed', 'pref.session_duration_type_changed',
+                   'pref.mobile_session_duration_changed',
+                   'team_authorized_ip_range_set',
+                   'idp_configuration_added', 'idp_configuration_deleted',
+                   'idp_prod_configuration_updated',
+                   'pref.anomaly_event_response_changed')
+  GROUP BY actor, action, attrs->>'location_id', attrs->>'location_name'
