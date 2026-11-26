@@ -261,23 +261,33 @@ knobs in `.env` — `0` on any of them means keep forever:
 
 ## Releases
 
-There are none yet — `main` is the only thing to run, and
-[CHANGELOG.md](CHANGELOG.md) keeps everything under `Unreleased`. Report
-vulnerabilities per [SECURITY.md](SECURITY.md).
+[v0.1.0](https://github.com/matijazezelj/caib/releases/tag/v0.1.0) is the
+first tag. It is a **pre-release**: everything is tested against fixtures and in
+CI, but no module has met a real cloud account yet. See
+[CHANGELOG.md](CHANGELOG.md) for what is in it, and report vulnerabilities per
+[SECURITY.md](SECURITY.md).
 
-The first tag will be cut once the dogfooding round in `CLAUDE.md` has been
-through a real deployment. When it is, it is signed:
+Tags are signed with the maintainer's SSH key, the ed25519 key listed at
+<https://github.com/matijazezelj.keys>
+(`SHA256:6vsxJrClnEuPXkDxygc3TckxekEGb3eoCE2+KAQF/Oo`). To verify one:
 
 ```sh
-# 1. move the Unreleased section of CHANGELOG.md under a `## [0.1.0] - <date>`
-#    heading and open a fresh empty Unreleased above it
-# 2. green CI on main, plus the release confidence checklist above
-git tag -s v0.1.0 -m "caib 0.1.0"
-git push origin v0.1.0
+echo "matijazezelj $(curl -s https://github.com/matijazezelj.keys | grep ed25519 | head -1)" > /tmp/caib_signers
+git -c gpg.ssh.allowedSignersFile=/tmp/caib_signers tag -v v0.1.0
 ```
 
-`-s` needs a signing key configured (`git config user.signingkey`); an unsigned
-tag on a security tool is not worth much.
+To cut the next one:
+
+```sh
+# 1. move the Unreleased section of CHANGELOG.md under a `## [x.y.z] - <date>`
+#    heading and open a fresh empty Unreleased above it
+# 2. green CI on main, plus the release confidence checklist above
+git -c gpg.format=ssh -c user.signingkey=~/.ssh/id_ed25519.pub \
+  tag -s vX.Y.Z -m "caib X.Y.Z"
+git push origin vX.Y.Z
+```
+
+An unsigned tag on a security tool is not worth much, so don't push one.
 
 ## Licensing
 

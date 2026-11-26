@@ -2,9 +2,10 @@
 
 ## Supported versions
 
-There are no releases yet. `main` is the only supported branch — fixes land
-there and nowhere else. Once the first tag is cut this section will say which
-tags still get fixes; until then, "supported" means "run `main`".
+The latest tag (currently `v0.1.0`, a pre-release) and `main` are supported.
+Fixes land on `main` and go out in the next tag; older tags get no backports
+while the project is pre-1.0. Private reports can also go through GitHub's
+private vulnerability reporting on this repository.
 
 ## Reporting a vulnerability
 

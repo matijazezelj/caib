@@ -1,16 +1,37 @@
 # Changelog
 
 Notable changes, newest first. Format loosely follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions will follow
-[semver](https://semver.org/spec/v2.0.0.html) once there is a version.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
+[semver](https://semver.org/spec/v2.0.0.html).
 
 The reasoning behind a change lives in [DECISIONS.md](DECISIONS.md) — this file
 is the index, not the record.
 
 ## [Unreleased]
 
-Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
-are not itemised here; what follows is what changed after it, by pull request.
+Nothing yet.
+
+## [0.1.0] - 2026-11-26
+
+First tagged release, published as a **pre-release**. It includes the whole
+initial build, spec phases 0–8:
+- four source modules: AWS CloudTrail, GCP Audit, Azure Activity and Cloudflare;
+- the loader with dedup into a TimescaleDB hypertable;
+- SQL detection rules with dead-man rules and a Sigma converter;
+- Grafana dashboards;
+- an HA overlay (Patroni + HAProxy);
+- pgBackRest backups;
+- a read-only agent API with an MCP server.
+
+Those phases are not itemised; what follows is what changed after them, by
+pull request.
+
+**Verification status.** Everything below is tested against fixtures, in CI and
+in the local release checks: `make demo`, `make restore-test`, and
+`make ha-failover-test` including detection continuity. **No module has been
+verified against a real cloud account yet.** The Vector-based modules (CloudTrail,
+GCP) only got a working database endpoint in this release (see the image batch
+below).
 
 ### Python dependency batch (November)
 
