@@ -1,7 +1,7 @@
 COMPOSE ?= docker compose
 COMPOSE_HA ?= docker compose -f docker-compose.yml -f compose.ha.yml
 
-.PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test restore-test new-module
+.PHONY: up down logs migrate test demo bench ha-up ha-down ha-logs ha-failover-test ha-chaos-test restore-test new-module
 
 .env:
 	@bash scripts/init_env.sh
@@ -41,7 +41,13 @@ ha-logs:
 	$(COMPOSE_HA) logs -f --tail=200
 
 ha-failover-test:
-	bash scripts/ha_failover_test.sh
+	bash scripts/ha_failover_test.sh stop
+
+# Hard kill (SIGKILL, waits out the Patroni TTL) then network partition of the
+# leader; each mode leaves the cluster healthy for the next.
+ha-chaos-test:
+	bash scripts/ha_failover_test.sh kill
+	bash scripts/ha_failover_test.sh partition
 
 restore-test: .env
 	bash scripts/restore_test.sh
