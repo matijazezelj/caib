@@ -851,3 +851,17 @@ user's call:
   description does not mention.
 - Enums are prose in the schema rather than `Literal`. They are still
   rejected server-side with a clear error.
+
+## 2026-11-26 — Sigma provenance in rule comments
+
+The spec asked rules to "note the Sigma ID in a comment". The five IDs written in
+Phase 4 matched nothing in SigmaHQ/sigma (checked at 876eb7b), and comparing logic
+showed none of our rules was derived from a Sigma rule: sg_open_ingress,
+iam_privileged_grant and sa_key_created have no upstream equivalent;
+root_console_login (ConsoleLogin only) and trail_tampering (PutEventSelectors
+instead of UpdateTrail) are related to 8ad1600d / 4db60cc0 but not conversions.
+Rule comments now say what each rule is; related upstream rules are named with
+real ID, title, author and DRL 1.1 link. Going forward: cite only IDs that exist
+upstream, with DRL attribution if the rule is based on one. Open: the Sigma->SQL
+converter emits only the Sigma ID; DRL 1.1 also wants author, link and licence
+kept in shared converted rules (and the author in match messages).

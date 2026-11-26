@@ -12,6 +12,21 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Public-release polish (#76)
+
+- Rules: five Sigma IDs cited in rule comments matched nothing upstream. None of the
+  rules was derived from Sigma; three now describe themselves, two name the related
+  SigmaHQ rule (real ID, author, DRL 1.1) as related, not derived. Guidance updated.
+- README: quickstart needs uv (`make up && make demo`); bench image 2.29.2 named;
+  index size ~0.7 GB; ingest headroom marked extrapolated; aws_cloudtrail live
+  verification pending.
+- SECURITY.md: agentapi/, ha/, backup/ in scope; all published ports listed;
+  unauthenticated Patroni REST, HAProxy stats and etcd in the HA overlay documented.
+- GCP fixtures use `example-project` instead of `acme-prod`.
+- CONTRIBUTING.md, PR and bug templates, CODEOWNERS; `license` in all pyprojects.
+- CI: read-only token at workflow level; gitleaks history scan (digest-pinned image,
+  reviewed false positives in .gitleaksignore).
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent
@@ -136,7 +151,7 @@ are not itemised here; what follows is what changed after it, by pull request.
   and fails on an untagged/`:latest` image or on the copies of the
   `timescale/timescaledb` pin disagreeing — neither is something dependabot
   catches.
-- CI now has a `build` job: `docker build` for all three images (no push) and
+- CI now has a `build` job: `docker build` for all four images (core, poller, agent-api, timescaledb-backup) (no push) and
   `docker compose config -q` for the base file and each overlay, with all
   profiles enabled. `test` now waits on `lint`.
 - Both Python images build from `uv.lock` (`uv sync --frozen --no-dev
