@@ -43,8 +43,25 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 7. ~~Supply chain / CI~~ — done. Left: no signing key for tagged releases. The
    repo is public (since November 2026); GitHub secret scanning + push
    protection, Dependabot alerts, CodeQL and private vulnerability reporting
-   are on. `main` has no ruleset (user's choice, 2026-11-26).
-8. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
+   are on. `main` has no ruleset yet (offered 2026-11-26, not chosen).
+8. **Public-release follow-ups** (from the 2026-11-26 audit/agent round):
+   - Live-verify the Vector modules first: until the image batch (#72),
+     their `${CAIB_PG_URL}` endpoint was never interpolated, so CloudTrail/GCP
+     ingestion via Vector has never worked outside tests.
+   - Test containers leak anonymous volumes: `docker rm -f` without `-v` in
+     `tests/conftest.py`, `tests/test_vector_cloudtrail.py`,
+     `scripts/restore_test.sh`.
+   - `make restore-test` passes with 0 events on a fresh volume; seed first.
+   - Sigma converter (`caib_core.sigma.to_yaml`) drops author/link/DRL 1.1
+     attribution that the licence asks to keep.
+   - Untested: HA rolling upgrade to pg18.7, hard-kill failover (30s TTL),
+     HA/Grafana/etcd images on amd64, bench on TimescaleDB 2.32.1.
+   - Remaining audit P2: commit signing + tag ruleset, Actions approval for
+     outside contributors, CHANGELOG `docker` dependabot line says three dirs
+     (four since `backup/`).
+   - Reviewer P1/P2 not started: Google Workspace, GitHub org, Entra ID, Slack
+     modules; HIB integration; Prowler findings; wider Sigma compatibility.
+9. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
    bottom of the spec); a blog post from the bench + DECISIONS findings.
 
 ## How to work here (habits the user approved)

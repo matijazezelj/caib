@@ -866,7 +866,8 @@ Applied with the owner's agreement:
   address; that was accepted.
 - Secret scanning, push protection, Dependabot alerts and security fixes,
   CodeQL default setup, and private vulnerability reporting are on.
-- `main` deliberately has no branch ruleset.
+- `main` has no branch ruleset yet. It was offered with the other settings and
+  not chosen this round.
 - Business-context wording was neutralised. That covers four phrases in the
   spec, among them "fractional CISO client" and "consulting-pitch artifact",
   plus one in CLAUDE.md. Wording only; no locked decision changed.
