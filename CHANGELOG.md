@@ -9,7 +9,13 @@ is the index, not the record.
 
 ## [Unreleased]
 
-Nothing yet.
+### Agent layer: read-only tool annotations, HIB design
+
+- All seven MCP tools are annotated `readOnlyHint` (plus non-destructive,
+  idempotent, closed-world). HIB and other clients that only offer read-only
+  tools dropped every CAIB tool before this.
+- `docs/design/HIB_INTEGRATION.md`: design for investigations across CAIB and
+  SIB driven by HIB (proposal, not built).
 
 ## [0.1.0] - 2026-11-26
 

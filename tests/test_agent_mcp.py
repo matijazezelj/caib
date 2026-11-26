@@ -93,6 +93,19 @@ def test_the_parameters_are_the_ones_the_query_core_takes(server):
     assert registered["list_rules"].input_schema.get("properties", {}) == {}
 
 
+def test_every_tool_is_annotated_read_only(server):
+    # Clients that offer only read-only tools (HIB filters on readOnlyHint)
+    # would otherwise drop the whole server.
+    registered = tools(server)
+    assert len(registered) == 7
+    for name, tool in registered.items():
+        ann = tool.annotations
+        assert ann is not None, name
+        assert ann.read_only_hint is True, name
+        assert ann.destructive_hint is False, name
+        assert ann.open_world_hint is False, name
+
+
 def test_actor_is_required_and_the_rest_are_not(server):
     schema = tools(server)["actor_activity"].input_schema
     assert schema.get("required") == ["actor"]

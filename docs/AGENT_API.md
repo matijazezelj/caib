@@ -259,6 +259,12 @@ Or without Docker, from a checkout with the workspace synced:
 
 Logs go to stderr, because stdout is the transport.
 
+Every tool is annotated `readOnlyHint: true` (also non-destructive,
+idempotent and closed-world). Clients that offer the model only read-only tools,
+such as HIB, rely on that hint. The `caib_agent_ro` role is what actually
+enforces it. Using CAIB from HIB, and investigating across CAIB and SIB, is
+designed (not built) in [design/HIB_INTEGRATION.md](design/HIB_INTEGRATION.md).
+
 ### Which Claude model to point at it
 
 CAIB never calls a model. The agent layer serves whatever client you connect.
