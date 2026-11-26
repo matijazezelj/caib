@@ -12,6 +12,17 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Image batch: TimescaleDB 2.32.1, Vector 0.62
+
+- Images: `timescale/timescaledb` 2.32.1-pg18 (compose, backup, CI, tests, bench),
+  HA `timescale/timescaledb-ha:pg18.7-ts2.32.1`, `timberio/vector` 0.62.0,
+  `grafana/grafana` 13.3.1, `coreos/etcd` v3.7.4, `uv` 0.13.10 — one PR replacing
+  dependabot #63 #66 #67 #68 #69. Existing volumes: `migrate` updates the
+  extension; restart loader/detect afterwards (docs/DEPLOY.md §8).
+- Fix: the Vector services now set `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION`;
+  since Vector 0.57 their `${CAIB_PG_URL}` endpoint (and GCP/SQS settings) had
+  been passed through as literal strings.
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent
