@@ -9,7 +9,8 @@ You review a single module, named in your task. Don't edit any files.
 
 Read, in this order: `modules/<name>/README.md`, `MAPPING.md` and
 `API_NOTES.md`, its fixtures, then whichever collector it has: a poller under
-`pollers/` (azure_activity, cloudflare_audit) or a VRL transform in
+`pollers/` (azure_activity, cloudflare_audit, github_audit, google_workspace,
+slack_audit) or a VRL transform in
 `vector/modules/<name>.yaml` (aws_cloudtrail, gcp_audit). Then the rules in
 `detect/rules/<name>/` (each has `module: <name>`). `docs/NEW_MODULE_HOWTO.md` describes how a module is
 meant to fit together.

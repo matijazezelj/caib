@@ -1047,3 +1047,121 @@ The rest of the design is in `docs/design/HIB_INTEGRATION.md` and is not built.
 - HIB's guard leaves ARNs, hosts and account IDs readable.
 
 The owner's open questions are listed at the end of that document.
+
+## 2026-11-26 — github_audit module (GitHub org audit log), built without a live org
+
+GitHub organization audit log via REST `GET /orgs/{org}/audit-log`, poller
+path. Requires GitHub Enterprise Cloud and an org-owner token (classic
+`read:audit_log` or fine-grained org "Administration: read"). Fixtures are
+SYNTHETIC; modules/github_audit/API_NOTES.md lists every assumption.
+
+- Cursoring uses the documented `created:A..B` search qualifier with
+  second precision (`THH:MM:SS+00:00`) and `order=asc`, paging with the Link
+  header's `after` cursor — the cloudflare window model. Inclusive range ends
+  mean boundary-second duplicates; dedup on `_document_id` absorbs them.
+- GitHub App auth: considered, deferred. GitHub documents the endpoint for
+  App installation tokens, but minting them needs RS256 JWT signing
+  (pyjwt + cryptography), a new pollers dependency. A person-bound owner
+  token is the cost; revisit when someone asks for App auth.
+- Git events: available to orgs via REST (`include=git|all`, 7-day
+  retention); exposed as CAIB_GITHUB_AUDIT_INCLUDE, default `web`.
+- No rule for audit-log streaming changes: `audit_log_streaming.*` is an
+  enterprise-log action and the org endpoint is not documented to return it.
+- Rate limits arrive as 403 or 429; the framework retries only 429, so a
+  403 limit crash-restarts the poller (cursor intact). Left as is — a
+  framework change affecting every poller, not a module one.
+- "Recent failures" dashboard panel replaced: GitHub's audit log has no
+  outcome field, every envelope is `success`.
+- `security_control_disabled` is derived from SigmaHQ 3883d9a0, ccd55945 and
+  8622c92d, keeping only org-documented actions (their `business_*` actions
+  belong to the enterprise log).
+
+## 2026-11-26 — slack_audit built from docs, SYNTHETIC
+
+ Built without an Enterprise org. Verified against docs.slack.dev and Slack's unauthenticated `/audit/v1/schemas` and `/actions` (every rule action literal exists there). Deviations from the 2026-08-24 recipe:
+- The token must be an Org Owner's (admin tokens are rejected).
+- `user_role_changed` does not exist; the role is encoded in `role_change_to_*` / `owner_transferred` / `role_assigned`, so no `details_type` attr.
+- Windows restart AT the previous inclusive `latest` (1s overlap) rather than `+1`.
+- Slack cursors expire, so the poller treats HTTP 400 while paging as an expired cursor and restarts the window (dedup absorbs the re-read). This is the one place a 4xx does not crash a CAIB poller; 401/403 still do.
+- `file_downloaded` includes in-app views, so the bulk rule counts ≥50 distinct files per 30 min instead of ≥10 events.
+- Added `anomaly_detected` (Slack's own anomaly engine) and `data_export_started`.
+- `pref.%` was replaced by an explicit auth-settings action list.
+- Late arrival of `anomaly` entries past the 300s lag is unknown. A sealed window is never re-read, so this is on the verify-live list.
+
+## 2026-11-26 — google_workspace: Reports API poller, overlap + dedup cursor
+
+- **Source:** Admin SDK Reports API `activities.list`, streams `login, admin, drive, token:authorize, saml`. `token` is narrowed to `eventName=authorize` because `token/activity` logs every API call an app makes. Built from docs only, with SYNTHETIC fixtures; live verification is pending.
+- **Auth:** service-account JWT bearer with domain-wide delegation, RS256 signed with `cryptography` (now a direct pollers dependency). The agent first wrote RSASSA-PKCS1-v1_5 in pure Python (its own DER parser, not constant-time) because uv.lock was frozen during the parallel build; the lead replaced it before merge. Hand-rolled crypto has no place in a security tool.
+- **Key delivery:** base64 JSON in `CAIB_GOOGLE_WORKSPACE_SA_KEY_B64`, not a mounted file, because the poller runs as uid 10001.
+- **Late events:** Google documents near-real-time lag for most apps, "a couple of hours" for token, and rare longer delays. Each window re-reads an overlap (30 min, and 6 h for token). Dedup is the loader's `event_id` (`app:time:uniqueQualifier:event_index`), plus an in-process seen-set so the overlap doesn't re-land in steady state. Events later than the overlap are lost; this is a verify-live item.
+- **Crash-loop guards:** a 400 on a pageToken request restarts the window; 401/403 still crash. Windows are capped at 24h and since is clamped to the 180-day retention.
+- **One envelope per `events[]` element**, with `attrs.application` on every row: login and saml share `login_success`/`login_failure`, so rules must filter on it.
+
+## 2026-11-26 — HA chaos test: hard kill and network partition
+
+`make ha-failover-test` only proved a graceful `docker stop`, where Patroni releases
+the leader key and a replica takes over in ~2s. `scripts/ha_failover_test.sh` now takes
+a mode (`stop|kill|partition`; helpers in `scripts/ha_lib.sh`), and `make
+ha-chaos-test` runs `kill` then `partition`. All three keep the detection-continuity
+assertions.
+
+- **kill** (`docker kill`; Docker does not restart a killed `unless-stopped`
+  container). Promotion must fall in `[ttl − loop_wait − 1, ttl + loop_wait +
+  retry_timeout]`, read from the live Patroni config: [19s, 50s]. The lower bound
+  catches a key that was released, i.e. not a hard failure.
+- **partition** (`docker network disconnect`; aliases restored on reconnect). Real
+  INSERTs go into the isolated node over its local socket. Its last accepted write must
+  be earlier than the new leader taking the key (Patroni log). HAProxy must list only
+  the new leader UP. The isolated node's rows must be on no node after it rejoins.
+- **Rejoin** means 1 leader + 2 replicas streaming on one, higher timeline. `/replica`
+  200 is not enough: a partitioned leader demotes to a read-only replica of its own
+  timeline and answers 200 before pg_rewind runs.
+- **Replication is async** (no `synchronous_mode`), so `kill`/`partition` measure lost
+  acknowledged writes rather than assert zero. They still fail on duplicates or on a
+  non-contiguous gap. `stop` still asserts zero.
+
+Measured on an arm64 laptop, 4 runs each on four fresh clusters:
+
+| | kill | partition |
+|---|---|---|
+| promotion | 25.5–26.6s | 22.0–23.6s |
+| writes resume | 29.8–31.7s | 27.7–29.5s |
+| isolated leader refuses writes from | — | 10.4–12.1s |
+
+- Rejoin was by pg_rewind in 4–5s in every hard run. `stop`: 1.4–1.7s.
+- Reused-cluster runs while building gave promotion 22.5–28.4s and a write window of
+  up to 16.8s.
+- Lost acknowledged writes: 0 in every run at 20 writes/s. That shows small lag, not
+  a guarantee.
+- The real exposure is the isolated leader accepting writes for 10–17s (18–30 probe
+  writes) before demoting. pg_rewind discards them. Clients behind HAProxy can't reach
+  it, but a client on its side of a partition would lose acknowledged writes.
+  `synchronous_mode(_strict)` would close that window; it is untested.
+- The post-failover alert came 62–120s after landing in every mode: the safety lag
+  plus the rule-interval phase.
+- Detect restarts 7–8 times per hard failover (1–2 per stop). Counts stayed exact.
+
+Negative controls:
+- `HA_KILL_SIGNAL=TERM` → `FAIL: promotion after 1.4s is below the hard-failure
+  minimum`.
+- `patronictl pause` plus a manual failover → `FAIL: SPLIT BRAIN — isolated spilo3
+  accepted a write 3.3s AFTER spilo1 took the leader key`.
+- A partition run SIGTERMed 5s after the fault → the trap reconnected the node, and
+  the cluster was healthy.
+
+## 2026-11-26 — v0.2 P1 merge: Sigma maps for the new modules, merge notes
+
+- `caib_core.sigma` gained field maps for `github_audit` (SigmaHQ's github/audit
+  rules match on `action`) and `google_workspace`. SigmaHQ's gworkspace rules
+  target the Cloud Logging export, where the service reads
+  `admin.googleapis.com`; the Reports API gives `admin`. The map therefore
+  appends `.googleapis.com` to `attrs.application`, because a plain mapping
+  would convert into rules that never fire. Both maps have tests that convert
+  a rule and fire it. SigmaHQ has no Slack audit rules, so there is no map
+  for `slack_audit`.
+- The three module PRs each appended to the same shared files (compose,
+  `.env.example`, README matrix, `demo_seed.py`). Git split one compose
+  conflict in the middle of a service, so the services were rebuilt whole.
+  The combined branch passed ruff and pytest (309), `make demo` with all
+  seven modules (9046 events, 40 alerts, 0 dead letters), `make restore-test`
+  (9046 restored) and `make ha-failover-test` before anything merged.

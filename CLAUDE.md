@@ -36,8 +36,11 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
    pgBackRest restore drill. Point a real agent at the agent layer
    (`/mcp`) while doing it — nothing there has met real data yet — and decide
    whether ack/close writes belong in v2.
-4. **Build slack_audit / zoom / knowbe4** from the HOWTO recipes — needs
-   Enterprise Grid token, Zoom S2S app, KnowBe4 key.
+4. **Live-verify the v0.2 modules** — `github_audit` (GHEC org owner token),
+   `google_workspace` (SA with domain-wide delegation), `slack_audit`
+   (Enterprise org owner token) are built from docs with SYNTHETIC fixtures
+   (2026-11-26); each `API_NOTES.md` has the verify-live checklist. Still
+   unbuilt: zoom, knowbe4 (HOWTO recipes), Entra ID.
 5. ~~Agent query layer~~ — done (`docs/AGENT_API.md`).
 6. ~~Reliability/ops backlog~~ — done.
 7. ~~Supply chain / CI~~ — done. Tags are signed with the SSH key (README
@@ -55,13 +58,18 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
    - `make restore-test` passes with 0 events on a fresh volume; seed first.
    - Sigma converter (`caib_core.sigma.to_yaml`) drops author/link/DRL 1.1
      attribution that the licence asks to keep.
-   - Untested: HA rolling upgrade to pg18.7, hard-kill failover (30s TTL),
-     HA/Grafana/etcd images on amd64, bench on TimescaleDB 2.32.1.
+   - Untested: HA rolling upgrade to pg18.7, HA/Grafana/etcd images on
+     amd64, bench on TimescaleDB 2.32.1, `synchronous_mode` (would close the
+     10–17s isolated-leader write window `make ha-chaos-test` measures).
+   - Detect crash-restarts 7–8× per hard failover (reconnect without
+     backoff); harmless, noisy.
+   - HIB integration v0.2 slice and the owner's open questions:
+     `docs/design/HIB_INTEGRATION.md`.
    - Remaining audit P2: commit signing + tag ruleset, Actions approval for
      outside contributors, CHANGELOG `docker` dependabot line says three dirs
      (four since `backup/`).
-   - Reviewer P1/P2 not started: Google Workspace, GitHub org, Entra ID, Slack
-     modules; HIB integration; Prowler findings; wider Sigma compatibility.
+   - Reviewer items not started: Entra ID module, Prowler findings, wider
+     Sigma compatibility, HIB integration build (design done).
 9. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
    bottom of the spec); a blog post from the bench + DECISIONS findings.
 
