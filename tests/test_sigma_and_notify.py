@@ -145,6 +145,9 @@ def test_resolve_format():
     assert notify.resolve_format("", "https://example.com/hook") == "json"
     assert notify.resolve_format("json", "https://hooks.slack.com/services/T/B/x") == "json"
     assert notify.resolve_format("slack", "https://example.com/hook") == "slack"
+    # Hostname match, not substring: a look-alike URL is not Slack.
+    assert notify.resolve_format("", "https://hooks.slack.com.example.com/x") == "json"
+    assert notify.resolve_format("", "https://example.com/?u=hooks.slack.com") == "json"
 
 
 def test_drain_sends_blocks_when_slack_format(migrated_db, webhook_capture):

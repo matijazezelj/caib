@@ -7,6 +7,7 @@ POST so the outbox can't grow unbounded."""
 import json
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import psycopg
@@ -49,7 +50,8 @@ def resolve_format(fmt_env: str, webhook_url: str) -> str:
     from the URL so the common case needs no extra config."""
     if fmt_env in ("json", "slack"):
         return fmt_env
-    return "slack" if "hooks.slack.com" in webhook_url else "json"
+    host = urllib.parse.urlsplit(webhook_url).hostname or ""
+    return "slack" if host == "hooks.slack.com" else "json"
 
 
 def slack_message(payload: dict) -> dict:
