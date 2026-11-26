@@ -1,4 +1,9 @@
-# Sigma: 8f0f7e57-9f18-46ae-b1ee-e2a03c73643b (AWS Root Credentials)
+# CAIB's own rule: an AWS console sign-in attempt (ConsoleLogin, any outcome) by
+# the account root user. Not derived from Sigma. Related upstream rule, which is
+# broader (any root activity except AwsServiceEvent): SigmaHQ "AWS Root
+# Credentials", id 8ad1600d-e9dc-4251-b0ee-a65268f29add, author vitaliy0x1,
+# https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/aws/cloudtrail/aws_root_account_usage.yml
+# (Detection Rule License 1.1).
 id: aws_cloudtrail.root_console_login
 enabled: true
 module: aws_cloudtrail
