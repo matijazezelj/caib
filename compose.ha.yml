@@ -12,7 +12,7 @@ services:
     profiles: ["single-node-disabled"]
 
   etcd:
-    image: quay.io/coreos/etcd:v3.7.1
+    image: quay.io/coreos/etcd:v3.7.4
     command:
       - etcd
       - --name=etcd0
@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
 
   spilo1: &spilo
-    image: timescale/timescaledb-ha:pg18.6-ts2.30.0
+    image: timescale/timescaledb-ha:pg18.7-ts2.32.1
     command: ["patroni", "/etc/patroni.yml"]
     environment: &spilo_env
       PATRONI_NAME: spilo1
