@@ -1,0 +1,25 @@
+# Written from scratch for CAIB (no SigmaHQ basis). An OAuth app with read
+# scopes is the quiet way to exfiltrate a Slack org (consent phishing, a
+# malicious "helper" app). Installs, scope expansions on an existing app, and
+# an app being pushed to every workspace in the org all widen that access.
+id: slack_audit.app_installed_or_scopes_expanded
+enabled: true
+module: slack_audit
+title: "Slack app installed or granted more scopes"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-') || '|' || action AS dedup_key,
+    jsonb_build_object('actor', actor, 'app', target,
+                       'app_name', attrs->>'entity_name', 'app_action', action) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'locations', jsonb_agg(DISTINCT attrs->>'location_name')) AS context,
+    max(event_time)                                                         AS last_event_time
+  FROM caib.events
+  WHERE module = 'slack_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('app_installed', 'app_scopes_expanded',
+                   'org_app_upgraded_to_org_install')
+  GROUP BY actor, target, action, attrs->>'entity_name'

@@ -144,6 +144,24 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  poller-slack-audit:
+    image: caib-poller:dev
+    build:
+      context: .
+      dockerfile: pollers/Dockerfile
+    profiles: ["slack_audit"]
+    environment:
+      CAIB_MODULE: slack_audit
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
+      # Empty is allowed here (never ${VAR:?}); the poller exits with a clear
+      # message at startup instead.
+      CAIB_SLACK_AUDIT_TOKEN: ${CAIB_SLACK_AUDIT_TOKEN:-}
+      CAIB_SLACK_AUDIT_BACKFILL: ${CAIB_SLACK_AUDIT_BACKFILL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   vector-aws-cloudtrail:
     image: timberio/vector:0.62.0-debian
     profiles: ["aws_cloudtrail"]

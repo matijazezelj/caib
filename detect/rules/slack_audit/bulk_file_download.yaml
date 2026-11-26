@@ -1,0 +1,39 @@
+# Written from scratch for CAIB (no SigmaHQ basis). Threshold shape: one actor
+# pulling many distinct files in a short window is the classic pre-departure
+# or stolen-session exfiltration pattern. Slack logs file_downloaded for
+# downloads AND in-app views, so the threshold counts DISTINCT files and is
+# set well above the recipe's original 10 (too noisy for a chatty org); tune
+# it per org once live volume is known. Complements Slack's own
+# excessive_downloads anomaly, which only covers users Slack profiles.
+id: slack_audit.bulk_file_download
+enabled: true
+module: slack_audit
+title: "Slack bulk file download by one actor"
+severity: medium
+interval: 300
+lookback: 30m
+sql: |
+  WITH trig AS (
+    SELECT DISTINCT actor
+    FROM caib.events
+    WHERE module = 'slack_audit'
+      AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+      AND action = 'file_downloaded'
+      AND actor IS NOT NULL
+  )
+  SELECT
+    e.actor                                         AS dedup_key,
+    jsonb_build_object('actor', e.actor)            AS entity,
+    jsonb_build_object(
+      'events', count(*)::int,
+      'distinct_files', count(DISTINCT e.target)::int,
+      'src_ips', jsonb_agg(DISTINCT host(e.src_ip))
+    )                                               AS context,
+    max(e.event_time)                               AS last_event_time
+  FROM caib.events e
+  JOIN trig t ON t.actor = e.actor
+  WHERE e.module = 'slack_audit'
+    AND e.action = 'file_downloaded'
+    AND e.event_time > %(wm_to)s::timestamptz - %(lookback)s::interval
+  GROUP BY e.actor
+  HAVING count(DISTINCT e.target) >= 50

@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "pollers"))
 from caib_core import detect, loader, notify
 from caib_pollers.modules.azure_activity import envelope as az_envelope
 from caib_pollers.modules.cloudflare_audit import envelope as cf_envelope
+from caib_pollers.modules.slack_audit import envelope as slack_envelope
 
 UTC = datetime.UTC
 SEED = 42
@@ -96,6 +97,16 @@ def gcp_envelope(entry: dict) -> dict:
         "attrs": {k: v for k, v in attrs.items() if v is not None},
         "raw": entry,
     }
+
+
+def slack_envelopes() -> list[tuple[str, dict]]:
+    """slack_audit fixture entries through the poller's own envelope()."""
+    entries = []
+    for page in ("logs_page1.json", "logs_page2.json"):
+        entries.extend(
+            json.loads((ROOT / "modules/slack_audit/fixtures" / page).read_text())["entries"]
+        )
+    return [("slack_audit", slack_envelope(e)) for e in entries]
 
 
 def demo_timestamps(rng: random.Random, n: int, now: datetime.datetime) -> list[datetime.datetime]:
@@ -187,6 +198,7 @@ def main() -> None:
         + [("cloudflare_audit", cf_envelope(r)) for r in cf_records]
         + [("gcp_audit", gcp_envelope(e)) for e in gcp_entries]
         + [("azure_activity", az_envelope(r)) for r in az_records]
+        + slack_envelopes()
     )
     batches: list[tuple[str, dict]] = []
     i = 0

@@ -1,0 +1,285 @@
+{
+  "_comment": "SYNTHETIC: built from Slack's Audit Logs API docs (docs.slack.dev, read 2026-11-26), not captured from a live org. Replace with a sanitized real response at first live run; see modules/slack_audit/API_NOTES.md.",
+  "entries": [
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab101",
+      "date_create": 1787480400,
+      "action": "user_login_failed",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "enterprise",
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "198.51.100.12",
+        "session_id": null
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab102",
+      "date_create": 1787480742,
+      "action": "file_downloaded",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "file",
+        "file": {
+          "id": "F0SPEC0001",
+          "name": "q3-plan.pdf",
+          "filetype": "pdf",
+          "title": "Q3 plan"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "198.51.100.12",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab103",
+      "date_create": 1787480763,
+      "action": "file_download_blocked",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0CAROL003",
+          "name": "Carol Contractor",
+          "email": "carol@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "file",
+        "file": {
+          "id": "F0SPEC0002",
+          "name": "salaries.xlsx",
+          "filetype": "xlsx",
+          "title": "salaries"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "192.0.2.77",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab104",
+      "date_create": 1787481019,
+      "action": "public_channel_created",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "channel",
+        "channel": {
+          "id": "C0PROJ0001",
+          "privacy": "public",
+          "name": "proj-falcon",
+          "is_shared": false,
+          "is_org_shared": false
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "198.51.100.12",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab105",
+      "date_create": 1787481667,
+      "action": "role_change_to_user",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab106",
+      "date_create": 1787481890,
+      "action": "app_uninstalled",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "app",
+        "app": {
+          "id": "A0OLDBOT01",
+          "name": "Old Standup Bot",
+          "is_distributed": false,
+          "is_directory_approved": false,
+          "is_workflow_app": false,
+          "scopes": [],
+          "bot_scopes": [
+            "chat:write"
+          ]
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "198.51.100.12",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab107",
+      "date_create": 1787482353,
+      "action": "pref.dnd_enabled",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "workspace",
+        "workspace": {
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab108",
+      "date_create": 1787482692,
+      "action": "user_logout",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "enterprise",
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    }
+  ],
+  "response_metadata": {
+    "next_cursor": ""
+  }
+}
