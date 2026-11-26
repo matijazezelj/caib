@@ -115,16 +115,78 @@ reach that channel.
 
 ## 6. Retention
 
-`caib.events` is compressed after 7 days and **dropped after 90**. That default
-is active from the first migration. If you have a compliance retention floor,
-change it before you need the data, not after:
+`caib.events` is compressed after 7 days and **dropped after 90**; the
+dashboard aggregates (`caib.events_5m`, `caib.actors_1h`) are kept 400 days.
+That default is active from the first migration. If you have a compliance
+retention floor (1–7 years of raw audit evidence is common), set it before you
+need the data, not after — a dropped chunk is gone unless a backup has it.
 
-```sql
-SELECT remove_retention_policy('caib.events');
-SELECT add_retention_policy('caib.events', drop_after => INTERVAL '400 days');
+Set it in `.env` and re-run migrate (`make up` does; so does `make migrate`):
+
+```sh
+CAIB_EVENTS_RETENTION_DAYS=2555   # raw events: 7 years. 0 = never drop
+#CAIB_CAGG_RETENTION_DAYS=        # aggregates; unset = follow raw upwards
 ```
 
+| Variable | Unset | Accepted values |
+|---|---|---|
+| `CAIB_EVENTS_RETENTION_DAYS` | leave the database's policy as it is (90 days on a fresh install) | `0` (never drop) or `7`–`36500` |
+| `CAIB_CAGG_RETENTION_DAYS` | leave as is (400 days), but raise it to match raw events if raw would outlive it | `0` or `1`–`36500`, and not shorter than raw events |
+
+How it behaves:
+
+- **Unset never resets anything.** If you changed retention by hand with
+  `remove_retention_policy`/`add_retention_policy` (what this section used to
+  tell you to do), migrate leaves it alone until you set the variable.
+- The same value on every run changes nothing. A new value alters the existing
+  Timescale job in place (`alter_job`: same job id and history); `0` removes the
+  policy; going from `0` back to a number adds one.
+- Nonsense is refused, and migrate exits non-zero **before changing anything**:
+  non-integers, negatives, more than 100 years, raw retention under 7 days
+  (the uncompressed hot tier that compression, detection and the raw dashboard
+  panels read), and aggregates kept shorter than raw events — dashboards read
+  the aggregates for any range wider than ~7 days, so they would show nothing
+  for periods whose raw events are still on disk.
+- **Lowering it deletes data**: chunks older than the new value go on the next
+  run of the retention job, and migrate logs a warning saying so.
+- Retention is a Timescale job — it follows a Patroni failover like the others.
+
 Do not edit the migrations — they are append-only and already applied.
+
+### Disk size
+
+From the committed `make bench` run (1M CloudTrail/GCP/Slack-shaped events,
+raw vendor JSON kept, i.e. `CAIB_DROP_RAW=false`; single run, expect ±20–30%,
+and your event shape will differ):
+
+- **Hot (first 7 days, uncompressed): ~2.0 GB per 1M events.** That is the
+  1.28 GB heap plus ~0.5 GB of b-tree/GIN indexes (0.47 GB of it the trgm
+  search index).
+- **Compressed (day 8 onward): ~0.22 GB per 1M events.** That is ~6x pure data
+  compression on the heap (1.28 GB → 0.22 GB); the often-quoted 9.3x compares
+  it with the whole hot footprint, indexes included — compressed chunks carry
+  no b-tree/GIN indexes.
+- Aggregates are pre-counted buckets: kilobytes to megabytes, not a sizing
+  factor.
+
+So the steady state is roughly `7 × daily × 2.0 GB + (retention − 7) × daily × 0.22 GB`,
+with `daily` in millions of events:
+
+| Raw retention | 100k events/day | 1M events/day | 10M events/day |
+|---|---|---|---|
+| 90 days (default) | ~3 GB | ~32 GB | ~320 GB |
+| 1 year | ~9 GB | ~93 GB | ~930 GB |
+| 3 years | ~25 GB | ~250 GB | ~2.5 TB |
+| 7 years | ~58 GB | ~575 GB | ~5.8 TB |
+| `0` (never) | grows ~8 GB/year | ~80 GB/year | ~800 GB/year |
+
+Add your backup repository on top (`docs/BACKUPS.md`: full backups plus WAL),
+and plan disk for the target retention on day one: growing a volume later is
+an outage on most hosts. `CAIB_DROP_RAW=true` drops the vendor JSON from
+`raw` and shrinks both tiers, at the cost of the original record — usually not
+what an audit wants. For multi-year retention on object storage instead of
+local disk, the spec's Phase 9 archive tier (unbuilt) is the intended path; it
+takes over chunk dropping from this policy when enabled.
 
 ## 7. Known rough edges
 

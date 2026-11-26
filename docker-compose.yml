@@ -42,6 +42,12 @@ services:
       # could never log in. `:-`, not `:?`: the agent layer is opt-in, and an
       # .env from before it must still start the core stack.
       CAIB_AGENT_RO_PASSWORD: ${CAIB_AGENT_RO_PASSWORD:-}
+      # Retention for caib.events and the caggs (caib_core.events_retention).
+      # `:-` with an empty default on purpose: unset means "leave the database's
+      # policies as they are", so an .env from before these existed changes
+      # nothing — including retention someone already raised by hand.
+      CAIB_EVENTS_RETENTION_DAYS: ${CAIB_EVENTS_RETENTION_DAYS:-}
+      CAIB_CAGG_RETENTION_DAYS: ${CAIB_CAGG_RETENTION_DAYS:-}
     volumes:
       - ./db/migrations:/app/db/migrations:ro
     depends_on:
