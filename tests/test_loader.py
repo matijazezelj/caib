@@ -7,10 +7,15 @@ from psycopg.types.json import Jsonb
 
 UTC = datetime.UTC
 
+# Relative to now, never a literal date: a fixed date eventually ages past the
+# 90-day retention policy, and the retention test then drops its "recent" row
+# (it did, on 2026-11-21).
+RECENT = (datetime.datetime.now(UTC) - datetime.timedelta(hours=1)).replace(microsecond=0)
+
 
 def envelope(**overrides) -> dict:
     env = {
-        "event_time": "2026-08-23T10:41:07Z",
+        "event_time": RECENT.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event_id": "abc-123",
         "actor": "matija@example.com",
         "src_ip": "203.0.113.7",
@@ -53,7 +58,7 @@ def test_envelope_lands_with_correct_columns(migrated_db: str) -> None:
         ).fetchone()
 
     expected_hash = hashlib.sha256(b"testmod:abc-123").digest()
-    assert row[0] == datetime.datetime(2026, 8, 23, 10, 41, 7, tzinfo=UTC)
+    assert row[0] == RECENT
     assert row[1] == "testmod"
     assert bytes(row[2]) == expected_hash
     assert row[3] == "matija@example.com"
