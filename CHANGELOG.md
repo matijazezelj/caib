@@ -9,6 +9,29 @@ is the index, not the record.
 
 ## [Unreleased]
 
+### v0.2 P1: three new modules, HA chaos tests
+
+- `github_audit` module: GitHub organization audit log poller (GitHub
+  Enterprise Cloud), 5 rules + dead-man, dashboard, compose profile
+  `github_audit`. Fixtures SYNTHETIC; live verification pending.
+- `slack_audit` module: Slack Audit Logs API poller (Enterprise orgs) with
+  expiring-cursor recovery, 6 rules + dead-man (admin role granted, Slack
+  anomaly, auth settings changed, data export, app install/scope expansion,
+  bulk file download), dashboard. Fixtures SYNTHETIC; live verification pending.
+- `google_workspace` module: Admin SDK Reports API poller (login, admin, drive,
+  token grants, saml), service-account JWT signed with `cryptography`, 6 rules
+  + dead-man, dashboard, compose profile `google_workspace`. Fixtures
+  SYNTHETIC; live verification pending.
+- Sigma converter: field maps for `github_audit` and `google_workspace`
+  (Workspace bridges `<app>.googleapis.com` to the Reports API application name).
+- `make ha-chaos-test`: HA failover under a hard kill (SIGKILL; promotion bounded by
+  the Patroni TTL) and a network partition of the leader. It checks no split brain via
+  direct writes to the isolated node, HAProxy routing to the new leader only, and
+  pg_rewind rejoin with the divergent writes discarded. Detection continuity is
+  asserted in both; async-replication loss is measured and reported.
+  `scripts/ha_failover_test.sh` takes a mode (`stop|kill|partition`);
+  `make ha-failover-test` is unchanged.
+
 ### Agent layer: read-only tool annotations, HIB design
 
 - All seven MCP tools are annotated `readOnlyHint` (plus non-destructive,
