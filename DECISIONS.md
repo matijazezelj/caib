@@ -1007,3 +1007,24 @@ Applied with the owner's agreement:
 The audit found that five detection rules cite Sigma IDs which do not exist
 upstream. They are being corrected in the public-polish PR, along with README,
 SECURITY.md and community-file fixes.
+
+## 2026-11-26 — v0.1.0 cut before dogfooding, as a signed pre-release
+
+The 2026-08 entry said the first tag would wait for the dogfooding round. The
+owner chose to release now, once the external reviewer's P0s were done except
+the credential-gated one. In place before the tag:
+- dependency and image PRs merged;
+- the full suite green in CI;
+- the release-confidence checks run together on the final combination:
+  `make demo`, `make restore-test` restoring 1996 events, and
+  `make ha-failover-test` with detection continuity.
+
+Still unverified: real cloud accounts. So it is a GitHub **pre-release**, and
+the CHANGELOG, README and release notes say so plainly.
+
+Signing: the README always required a signed tag. No GPG key exists; the
+maintainer's ed25519 SSH key, already public at github.com/matijazezelj.keys,
+signs it (`gpg.format=ssh`, passed per command so the global git config is
+unchanged). GitHub shows a tag as Verified only once that key is also
+registered as a *signing* key on the account, which the owner does. The
+README documents verification with an allowed-signers file built from that URL.
