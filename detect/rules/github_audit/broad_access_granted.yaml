@@ -1,0 +1,48 @@
+# CAIB's own rule: a token or app was given broad access to the org.
+#   - a fine-grained PAT approved for, or an app installed on, ALL repositories
+#     (repository_selection = 'all');
+#   - a classic PAT / OAuth token authorized for SSO with a scope that can
+#     write code or change the org (repo, workflow, delete_repo, admin:*);
+#   - an OAuth app approved for the org.
+# Long-lived broad credentials are how a single leaked laptop token becomes an
+# org-wide incident. Expect some noise from legitimate tooling: dedup is per
+# actor and credential, so each grant alerts once. Literals to verify live:
+# the 'all' value and the scope-list format (modules/github_audit/API_NOTES.md).
+id: github_audit.broad_access_granted
+enabled: true
+module: github_audit
+title: "GitHub token or app granted broad org access"
+severity: medium
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    action || '|' || coalesce(actor, '-') || '|' ||
+      coalesce(coalesce(attrs->>'user_programmatic_access_name', attrs->>'integration',
+                        attrs->>'oauth_application_name', target), '-')   AS dedup_key,
+    jsonb_build_object('actor', actor, 'action', action,
+                       'credential',
+                       coalesce(attrs->>'user_programmatic_access_name',
+                                attrs->>'integration',
+                                attrs->>'oauth_application_name', target)) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'repository_selection',
+                       jsonb_agg(DISTINCT attrs->>'repository_selection'),
+                       'token_scopes', jsonb_agg(DISTINCT attrs->>'token_scopes')) AS context,
+    max(event_time)                                                       AS last_event_time
+  FROM caib.events
+  WHERE module = 'github_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND (
+      (action IN ('personal_access_token.access_granted',
+                  'integration_installation.create',
+                  'integration_installation.repositories_added')
+        AND attrs->>'repository_selection' = 'all')
+      OR (action = 'org_credential_authorization.grant'
+        AND attrs->>'token_scopes'
+            ~ '(^|[ ,])(repo|workflow|delete_repo|admin:[a-z_]+)($|[ ,])')
+      OR action = 'org.oauth_app_access_approved'
+    )
+  GROUP BY action, actor,
+           coalesce(attrs->>'user_programmatic_access_name', attrs->>'integration',
+                    attrs->>'oauth_application_name', target)

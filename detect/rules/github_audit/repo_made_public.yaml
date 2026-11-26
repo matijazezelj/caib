@@ -1,0 +1,31 @@
+# CAIB's own rule: a repository's visibility changed to public (`repo.access`
+# with visibility = 'public'). Turning private code public is the fastest way
+# to leak source, secrets in history and internal URLs, and it cannot be
+# undone once the repo is cloned or indexed. Related, not derived: SigmaHQ
+# "GitHub Repository Pages Site Changed to Public", id
+# 0c46d4f4-a2bf-4104-9597-8d653fc2bb55, author Ivan Saakov,
+# https://github.com/SigmaHQ/sigma/blob/master/rules/application/github/audit/github_pages_site_changed_to_public.yml
+# (Detection Rule License 1.1). The 'public' literal is unverified live
+# (modules/github_audit/API_NOTES.md).
+id: github_audit.repo_made_public
+enabled: true
+module: github_audit
+title: "GitHub repository made public"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(coalesce(attrs->>'repo', target), '-')                         AS dedup_key,
+    jsonb_build_object('repo', coalesce(attrs->>'repo', target),
+                       'actor', actor)                            AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'previous_visibility',
+                       jsonb_agg(DISTINCT attrs->>'previous_visibility')) AS context,
+    max(event_time)                                               AS last_event_time
+  FROM caib.events
+  WHERE module = 'github_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'repo.access'
+    AND attrs->>'visibility' = 'public'
+  GROUP BY coalesce(attrs->>'repo', target), actor

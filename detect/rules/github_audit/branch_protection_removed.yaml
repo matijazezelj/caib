@@ -1,0 +1,30 @@
+# CAIB's own rule: branch protection was deleted from a branch
+# (`protected_branch.destroy`) or a repository ruleset was deleted
+# (`repository_ruleset.destroy`). Either one lets unreviewed code reach a
+# protected branch; attackers remove it before pushing, and sometimes put it
+# back afterwards, so a later re-create does not make this benign. No SigmaHQ
+# equivalent at the time of writing (checked rules/application/github/audit,
+# 2026-11-26).
+id: github_audit.branch_protection_removed
+enabled: true
+module: github_audit
+title: "GitHub branch protection or ruleset removed"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(coalesce(attrs->>'repo', target), '-') || '|' || coalesce(actor, '-') AS dedup_key,
+    jsonb_build_object('repo', coalesce(attrs->>'repo', target),
+                       'actor', actor)                                   AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action),
+                       'branches', jsonb_agg(DISTINCT attrs->>'branch'),
+                       'via_token',
+                       jsonb_agg(DISTINCT attrs->>'programmatic_access_type')) AS context,
+    max(event_time)                                                      AS last_event_time
+  FROM caib.events
+  WHERE module = 'github_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('protected_branch.destroy', 'repository_ruleset.destroy')
+  GROUP BY coalesce(attrs->>'repo', target), actor

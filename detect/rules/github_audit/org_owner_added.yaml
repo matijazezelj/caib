@@ -1,0 +1,34 @@
+# CAIB's own rule: someone became an organization owner, either promoted
+# (`org.update_member`) or added straight in as one (`org.add_member`), read
+# from the `permission` field. Owners can read the audit log, delete repos and
+# turn off every other control here, so this is the persistence step after
+# a takeover. Related, not derived: SigmaHQ "New Github Organization Member
+# Added", id 3908d64a-3c06-4091-b503-b3a94424533b, author Muhammad Faisal
+# (@faisalusuf),
+# https://github.com/SigmaHQ/sigma/blob/master/rules/application/github/audit/github_new_org_member.yml
+# (Detection Rule License 1.1) — that one fires on any new member; this one
+# only on the owner role. Assumption to verify live: owners show as
+# permission = 'admin' (the REST membership API's name for the owner role).
+id: github_audit.org_owner_added
+enabled: true
+module: github_audit
+title: "GitHub organization owner added"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(attrs->>'org', '-') || '|' || coalesce(target, '-')  AS dedup_key,
+    jsonb_build_object('org', attrs->>'org', 'new_owner', target,
+                       'actor', actor)                             AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action),
+                       'old_permission',
+                       jsonb_agg(DISTINCT attrs->>'old_permission'))  AS context,
+    max(event_time)                                                AS last_event_time
+  FROM caib.events
+  WHERE module = 'github_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('org.update_member', 'org.add_member')
+    AND attrs->>'permission' = 'admin'
+  GROUP BY attrs->>'org', target, actor
