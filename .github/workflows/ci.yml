@@ -21,7 +21,7 @@ jobs:
     services:
       timescaledb:
         # Must be the TSL build; the license test below is the gate.
-        image: timescale/timescaledb:2.30.0-pg18
+        image: timescale/timescaledb:2.32.1-pg18
         env:
           POSTGRES_PASSWORD: ci
           POSTGRES_DB: caib
