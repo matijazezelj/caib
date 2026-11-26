@@ -171,7 +171,8 @@ that is a requirement you actually have.
 
 ```sh
 make ha-up             # Patroni x3 + etcd + HAProxy (lab, single host)
-make ha-failover-test  # kills the primary under write load; asserts zero loss
+make ha-failover-test  # graceful stop of the primary under write load; asserts zero loss
+make ha-chaos-test     # hard kill, then network partition of the primary
 make ha-down
 ```
 
@@ -180,6 +181,37 @@ The HA overlay (`compose.ha.yml`) runs three `timescale/timescaledb-ha` nodes
 `:5000` (primary only), Grafana and the agent API use `:5001` (replicas *and*
 primary, so reads survive replica loss). Timescale's compression/retention/cagg jobs
 follow the primary automatically — they're catalog state, not node state.
+
+**What the failover tests prove.** All three modes run `scripts/ha_failover_test.sh
+<mode>` against a healthy cluster: 20 synthetic writes/s plus a detection probe
+through HAProxy, a fault on the leader, then a new leader, writes resuming through
+`:5000`, HAProxy routing only to the new leader, Grafana answering, the Timescale jobs
+on the new primary, and the old node back as a streaming replica on the new timeline.
+Detection continuity is checked the same way in every mode: an alert before the fault,
+a new alert for events landed after it, each alert's `event_count` exactly equal to
+its events in `caib.events`, and one `new` outbox row per alert.
+
+| Mode | Fault | What it adds | Measured (arm64 laptop; kill/partition: 2 runs, fresh cluster each) |
+|---|---|---|---|
+| `stop` | `docker stop` (Patroni releases the leader key) | zero committed-write loss asserted | promotion 1.4s, writes resume 14.5s, post-failover alert 131s after the stop (1 run) |
+| `kill` | `docker kill` (SIGKILL; key must expire) | promotion inside `[ttl − loop_wait − 1, ttl + loop_wait + retry_timeout]` = [19s, 50s], computed from the live Patroni config; faster means the key was released, so not a hard failure | promotion 26.1/26.6s, writes resume 30.3/30.9s, post-failover alert 98.9/98.8s; rejoin by `pg_rewind` in 4s |
+| `partition` | `docker network disconnect` (leader alive, cut off from etcd, HAProxy and replicas) | the isolated leader's last accepted write (real INSERTs over its local socket) is earlier than the new leader taking the key; the rows it accepted while isolated are on no node after it rejoins | isolated leader refuses writes from 11.0/12.1s, new leader at 23.3/23.6s, writes resume 28.5/28.4s, post-failover alert 92.7/93.0s; rejoin by `pg_rewind` in 4–5s |
+
+Replication is **asynchronous** (no `synchronous_mode` in `ha/patroni.yml`). A hard
+kill or partition can therefore lose commits the replicas had not received. `kill` and
+`partition` measure that loss instead of asserting zero: 0 acknowledged writes lost in
+every run at 20 writes/s, which shows the lag was small, not that loss cannot happen.
+The partition runs also show the real exposure. The cut-off leader kept accepting
+writes for 10–12s (19 and 21 probe writes) until Patroni demoted it, and `pg_rewind`
+then discarded them. Here no application could reach it, because every client goes
+through HAProxy. A client that can still reach an isolated leader directly would get
+those writes acknowledged and then lose them. If you need zero loss on a hard failure,
+set `synchronous_mode: true`, and accept that writes stall while no synchronous
+replica is available.
+
+Negative controls showed the new checks can fail. `HA_KILL_SIGNAL=TERM` (a graceful
+stop disguised as a kill) fails the lower bound. `patronictl pause` plus a manual
+failover (the isolated leader never demotes) fails with `SPLIT BRAIN`.
 
 **Promoting the lab overlay to real hosts:**
 
@@ -234,7 +266,8 @@ Docker).
 ```sh
 make test               # ~200 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
 make bench              # measured ingest/compression/query numbers -> bench/results/
-make ha-failover-test   # kills the primary under write load; asserts zero loss
+make ha-failover-test   # graceful primary stop under write load; asserts zero loss
+make ha-chaos-test      # hard kill + network partition; bounds, split brain, rejoin
 make restore-test       # backup -> scratch restore -> license/marker/count assertions
 ```
 
