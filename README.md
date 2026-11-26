@@ -239,8 +239,12 @@ make restore-test       # backup -> scratch restore -> license/marker/count asse
 ## Retention defaults
 
 Events: compressed after 7 days, dropped after 90 days. Continuous aggregates
-are kept much longer (cheap). Change post-install with
-`remove_retention_policy` / `add_retention_policy` — do not edit migrations.
+are kept 400 days (cheap). For audit evidence that has to outlive that, set
+`CAIB_EVENTS_RETENTION_DAYS` (e.g. `2555` for 7 years, `0` to never drop) and
+optionally `CAIB_CAGG_RETENTION_DAYS` in `.env`; `migrate` applies them on
+every `make up`. Unset leaves the database as it is. Validation rules and disk
+sizing per retention period are in [docs/DEPLOY.md](docs/DEPLOY.md#6-retention).
+Do not edit migrations.
 
 `caib.events` is the only hypertable, so the Timescale policies stop there.
 The three plain tables that would otherwise grow forever are swept hourly by

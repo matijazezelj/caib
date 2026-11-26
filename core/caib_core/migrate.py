@@ -1,4 +1,5 @@
-"""Apply db/migrations in order, record them in caib.schema_migrations, sync roles.
+"""Apply db/migrations in order, record them in caib.schema_migrations, sync roles,
+then apply the retention knobs (caib_core.events_retention).
 
 Bootstrap (roles, extension, schema_migrations) lives here rather than in a
 migration file: CREATE EXTENSION timescaledb must run outside a transaction
@@ -17,6 +18,8 @@ import time
 
 import psycopg
 from psycopg import sql
+
+from caib_core import events_retention
 
 log = logging.getLogger("caib.migrate")
 
@@ -293,6 +296,7 @@ def run(super_url: str, migrations_dir: pathlib.Path, wait_s: float = 0) -> int:
             else psycopg.connect(super_url, autocommit=True)
         )
 
+    events_retention.validate_env()
     with connect() as conn:
         update_extension(conn)
     with connect() as conn:
@@ -300,6 +304,7 @@ def run(super_url: str, migrations_dir: pathlib.Path, wait_s: float = 0) -> int:
         count = apply_pending(conn, migrations_dir)
         sync_passwords(conn)
         sync_grants(conn)
+        events_retention.sync_retention(conn)
     return count
 
 

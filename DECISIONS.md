@@ -929,3 +929,43 @@ the same seq; the loader's conflict key is (event_time, dedup_hash), so an
 ambiguous COMMIT retried across a second boundary would have become a
 duplicate. Fixed (time fixed per seq). The EXIT trap now restarts the
 stopped node so a failed run doesn't leave a two-node cluster.
+
+## 2026-11-26 — raw-event and cagg retention are env knobs, applied by migrate
+
+External review P1: audit/compliance deployments need 1–7 years of raw events, or
+never-drop. The spec says retention is "configurable post-install via
+remove_*_policy/add_*_policy — document in README, don't parameterize migrations".
+That still holds: no migration changed. `migrate` gained a post-migration sync
+step (`caib_core.events_retention`), like the role/grant syncs, driven by
+`CAIB_EVENTS_RETENTION_DAYS` and `CAIB_CAGG_RETENTION_DAYS` (0 = never drop).
+
+**Unset means "leave the database alone", not "reset to 90".** The old DEPLOY.md
+told operators to change retention by hand; a default of 90 re-applied on every
+`make up` would have cut a hand-raised policy back and dropped the data. Fresh
+installs still get 90/400 from 0002/0004.
+
+**Validated before anything changes**: integers 0..36500; raw >= 7 days (the
+uncompressed hot tier that compression, detection and the raw dashboard panels
+read); caggs not shorter than raw, because dashboards read the caggs for ranges
+wider than ~7 days and would show nothing over stored raw data. A bad value
+fails migrate before any migration runs.
+
+**Caggs follow raw upwards** when the events knob is set and the cagg knob is not.
+Raising retention deletes nothing; an explicit shorter cagg value is refused instead.
+
+Applied with `alter_job` (keeps job id, history and the `scheduled` flag),
+remove for 0, add where none exists; one transaction; same values are a no-op.
+Found while testing: the jobs view names a cagg's job by the view, not the
+materialization hypertable; and a policy re-added by hand as postgres is still
+owned by the hypertable owner (caib_app).
+
+**The agent API's lookback ceiling follows the live policy.** query.MAX_LOOKBACK
+(90 days, "matching the retention policy") became wrong the moment retention was
+configurable: a 7-year install's agents still could not see past 90 days. The
+query core now reads caib.events' drop_after from timescaledb_information.jobs on
+every event query (one catalog row; a cache would clamp to a stale value after a
+migrate) and reports it as window.max_lookback_days. No policy means no ceiling;
+what bounds a huge scan is what already did, the role's 15s statement_timeout
+and the LIMIT caps. No new cap was invented. caib_agent_ro reads that view
+through TimescaleDB's own PUBLIC grant on timescaledb_information (job configs,
+no event data, already readable by every role), so 0008's grant list is unchanged.

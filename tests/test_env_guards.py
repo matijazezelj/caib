@@ -128,3 +128,21 @@ def test_migrate_receives_every_role_password_it_syncs():
     passed = set(compose["services"]["migrate"]["environment"])
     assert synced <= passed, f"not passed to migrate: {sorted(synced - passed)}"
 
+
+
+def test_migrate_receives_the_retention_knobs():
+    """migrate applies the events/cagg retention knobs; documenting them in
+    .env.example without passing them through compose would make them inert."""
+    import yaml
+    from caib_core import events_retention
+
+    knobs = {events_retention.EVENTS_VAR, events_retention.CAGG_VAR}
+    documented = {
+        line.lstrip("#").split("=", 1)[0] for line in EXAMPLE.read_text().splitlines()
+    }
+    assert knobs <= documented, f"not in .env.example: {sorted(knobs - documented)}"
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    env = compose["services"]["migrate"]["environment"]
+    assert knobs <= set(env), f"not passed to migrate: {sorted(knobs - set(env))}"
+    # Never `:?` — an .env without them must keep starting, unchanged.
+    assert all(":?" not in env[k] for k in knobs)
