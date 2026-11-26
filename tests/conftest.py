@@ -17,7 +17,7 @@ import pytest
 from caib_core import migrate
 from caib_pollers.framework import Ctx
 
-TSDB_IMAGE = "timescale/timescaledb:2.30.0-pg18"
+TSDB_IMAGE = "timescale/timescaledb:2.32.1-pg18"
 MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "db" / "migrations"
 
 

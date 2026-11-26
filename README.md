@@ -69,9 +69,9 @@ Screenshots regenerate via the optional renderer overlay — see
 
 | Component | Image | Notes |
 |---|---|---|
-| Database | `timescale/timescaledb:2.30.0-pg18` | TSL build required (Apache-only build lacks compression/retention/caggs) |
-| Collector | `timberio/vector:0.58.0-debian` | push sources (S3/SQS, Pub/Sub) |
-| Dashboards | `grafana/grafana:13.2.2` | fully provisioned, read-only DB role |
+| Database | `timescale/timescaledb:2.32.1-pg18` | TSL build required (Apache-only build lacks compression/retention/caggs) |
+| Collector | `timberio/vector:0.62.0-debian` | push sources (S3/SQS, Pub/Sub) |
+| Dashboards | `grafana/grafana:13.3.1` | fully provisioned, read-only DB role |
 | Core services | `caib-core` (built here) | `migrate` / `loader` / `detect` / `retention` / `healthcheck` entrypoints |
 | Pollers | `caib-poller` (built here) | one image, `CAIB_MODULE` selects the module |
 | Agent query layer | `caib-agent-api` (built here) | optional; read-only HTTP/JSON + MCP, profile `agent-api` |

@@ -852,6 +852,51 @@ user's call:
 - Enums are prose in the schema rather than `Literal`. They are still
   rejected server-side with a clear error.
 
+## 2026-11-26 — Image batch: TimescaleDB 2.32.1, Vector 0.62, Grafana 13.3.1, etcd 3.7.4, uv 0.13.10
+
+Consolidates dependabot #63 #66 #67 #68 #69 into one branch: each bumped one
+file, so `check_image_pins.sh` failed them (and every `test` job failed on the
+retention-test clock bug fixed in #71).
+
+**TimescaleDB 2.30.0 → 2.32.1, HA pg18.6-ts2.30.0 → pg18.7-ts2.32.1.** A
+matching TSL HA tag exists (pg18.7 only; no pg18.6-ts2.32.1), so HA moved too
+and both images now run PostgreSQL 18.7. Upstream's only backward-incompatible
+changes (2.31.0) rename debug GUCs we don't use. Two notes that matter: 2.32.0
+runs the bgw scheduler as the database owner instead of superuser, and 2.32.1
+fixes "every job run by the scheduler fails" on PG 18.7 for older TimescaleDB
+versions. Reproduced: on the 2.32.1 image with the volume's extension still at
+2.30.0, a scheduler-run compression job failed ("cannot drop portal "" while it
+is being set up"); after migrate's update it succeeded. So on an existing volume
+every policy job fails from the image switch until migrate has run — the
+extension update is the fix, not the loader/detect restart (that one is for
+client sessions holding the old library). The image ships a direct
+2.30.0→2.32.1 update script. Rehearsed with `docker run` on a throwaway volume:
+2.30.0 image, migrations, 720 events, 22 compressed chunks; switched to 2.32.1,
+migrate updated the extension to 2.32.1; counts intact, cagg refresh, trgm
+search, recompress and the compression policy job worked. Not yet rehearsed on
+a demo-seeded compose volume or the HA cluster; container checks ran on arm64.
+
+**Vector 0.58 → 0.62, and Vector configs were never interpolated.** Since 0.57,
+`${VAR}` in a config file stays a literal string unless
+`VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION` is set (verified on 0.58 and
+0.62 with a one-field config). Neither compose Vector service set it, so both
+have run with endpoint `"${CAIB_PG_URL}"` since the 0.57 pin — unnoticed because
+both modules are credential-gated, 0.58's `validate` accepted the literal, and
+the e2e tests write a concrete endpoint. 0.62 validates the URI ("invalid uri
+character") and broke `test_gcp_config_validates`, which is how it surfaced.
+Both services now set the variable; 0.62 parses config before substituting and
+substitutes into string values only, so the structural-injection risk the name
+warns about is gone. `test_compose_env` asserts every `timberio/vector` service
+carries it (fails without). The 0.59–0.62 upgrade guides and release notes have
+no other change touching our components; VRL 0.36's stricter array typing still
+compiles our `join(...) ?? null`.
+
+**Grafana 13.3.1** — one breaking change (`isDefault` dropped from an API list
+type); file-provisioned datasource and all six dashboards verified in a
+throwaway container. **etcd 3.7.4** — patch releases, base image now Debian 13,
+still runs as root, our command line works. **uv 0.13.10** — all three Python
+images build against the unchanged `uv.lock` with `--frozen`.
+
 ## 2026-11-26 — HA failover test asserts detection continuity
 
 An external reviewer made "validate detection continuity during database

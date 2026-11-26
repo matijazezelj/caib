@@ -21,7 +21,7 @@ import yaml
 from caib_core import loader
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-VECTOR_IMAGE = "timberio/vector:0.58.0-debian"
+VECTOR_IMAGE = "timberio/vector:0.62.0-debian"
 FIXTURE = ROOT / "modules" / "aws_cloudtrail" / "fixtures" / "cloudtrail_records.json"
 MODULE_YAML = ROOT / "vector" / "modules" / "aws_cloudtrail.yaml"
 BASE_YAML = ROOT / "vector" / "vector.yaml"
