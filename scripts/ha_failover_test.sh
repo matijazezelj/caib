@@ -43,7 +43,7 @@
 # gone from every node (its divergent timeline was rewound, not merged).
 #
 # Run after: make ha-up (cluster healthy).
-set -euo pipefail
+set -eEuo pipefail
 cd "$(dirname "$0")/.."
 
 MODE=${1:-stop}
@@ -126,6 +126,11 @@ restore_node() {
 # shellcheck disable=SC2329  # invoked by the EXIT trap
 cleanup() {
   local rc=$?
+  trap - ERR
+  if [ "$rc" != 0 ]; then
+    [ -n "$FAILED" ] || echo "FAIL: [$MODE] aborted (exit $rc)"
+    failure_diag
+  fi
   for pid in $INSERTER_PID $PROBE_A_PID $SPLIT_PID; do kill "$pid" 2>/dev/null || true; done
   # A failed run must not leave a two-node cluster or a cut-off node behind.
   if [ -n "$FAULT_NODE" ]; then
@@ -139,6 +144,9 @@ cleanup() {
   rm -f "$COMMITTED_FILE" "$PROBE_A_FILE" "$SPLIT_LOG"
 }
 trap cleanup EXIT
+trap 'on_err $LINENO $?' ERR
+trap 'FAILED=1; echo "FAIL: [$MODE] interrupted"; exit 130' INT
+trap 'FAILED=1; echo "FAIL: [$MODE] terminated"; exit 143' TERM
 
 echo "== detection probe: key A lands continuously (1/s) from before the fault"
 uv run python scripts/ha_detect_probe.py --url "$APP_URL" --run "$RUN_ID" --key A \
@@ -151,7 +159,7 @@ while :; do
   STATE_A=$(alert_state A)
   [ -n "$STATE_A" ] && break
   if [ "$(secs "$(elapsed "$T_PROBE" "$EPOCHREALTIME")")" -gt "$DETECT_BOUND_S" ]; then
-    echo "FAIL: pre-failover alert A not raised in ${DETECT_BOUND_S}s — detect is not firing even before the failover"
+    FAILED=1; echo "FAIL: pre-failover alert A not raised in ${DETECT_BOUND_S}s — detect is not firing even before the failover"
     detect_diag; exit 1
   fi
   sleep 1
@@ -170,6 +178,13 @@ case "$MODE" in
   kill)      echo "== killing primary spilo$PRIMARY_N (docker kill --signal $KILL_SIGNAL)" ;;
   partition) echo "== partitioning primary spilo$PRIMARY_N (docker network disconnect $COMPOSE_NET)" ;;
 esac
+if [ "$MODE" = partition ]; then
+  # The split-brain check is vacuous if the direct write path never works:
+  # prove it commits on the leader right before the fault. (Tagged 'pre-...'
+  # because this row legitimately replicates.)
+  node_sql "$PRIMARY_N" "INSERT INTO public.ha_chaos_split (run) VALUES ('pre-$RUN_ID')" >/dev/null \
+    || fail "direct write to leader spilo$PRIMARY_N over its local socket failed BEFORE the fault — the split-brain writer cannot work"
+fi
 FAULT_NODE=$PRIMARY_N
 T0_RT=$EPOCHREALTIME
 case "$MODE" in
@@ -203,7 +218,7 @@ while [ -z "$NEW_PRIMARY" ]; do
   done
   [ -n "$NEW_PRIMARY" ] && break
   if [ $(( $(date +%s) - T0 )) -gt "$PROMO_MAX_S" ]; then
-    echo "FAIL: no new primary in ${PROMO_MAX_S}s"
+    FAILED=1; echo "FAIL: no new primary in ${PROMO_MAX_S}s"
     echo "   diag: cluster members:"; cluster_members | sed 's/^/     /' || true
     [ "$MODE" = partition ] && echo "   diag: isolated-node writes accepted: $(grep -c ' ok ' "$SPLIT_LOG" || true), last sample: $(tail -1 "$SPLIT_LOG")"
     exit 1
@@ -339,9 +354,9 @@ while :; do
   [ "$CNT_A" = "$EV_A" ] && [ "$CNT_B" = "$EV_B" ] && break
   if [ "$(secs "$(elapsed "$T_B_RT" "$EPOCHREALTIME")")" -gt "$DETECT_BOUND_S" ]; then
     if [ -z "$STATE_B" ]; then
-      echo "FAIL: DETECTION GAP — no alert for post-failover key B ${DETECT_BOUND_S}s after it landed (A event_count=${CNT_A:-none}/$EV_A)"
+      FAILED=1; echo "FAIL: DETECTION GAP — no alert for post-failover key B ${DETECT_BOUND_S}s after it landed (A event_count=${CNT_A:-none}/$EV_A)"
     else
-      echo "FAIL: DETECTION GAP — events missing from alerts after failover: A event_count=${CNT_A:-none}/$EV_A, B event_count=$CNT_B/$EV_B"
+      FAILED=1; echo "FAIL: DETECTION GAP — events missing from alerts after failover: A event_count=${CNT_A:-none}/$EV_A, B event_count=$CNT_B/$EV_B"
     fi
     detect_diag; exit 1
   fi
@@ -360,7 +375,7 @@ echo "== heartbeats advance past the failover (beat_at > $T_PROMO_DB, <=60s)"
 HB_DEADLINE=$(( $(date +%s) + 60 ))
 for svc in loader detect; do
   until [ "$(sql "SELECT count(*) FROM ops.heartbeat WHERE service = '$svc' AND beat_at > '$T_PROMO_DB'::timestamptz")" = "1" ]; do
-    [ "$(date +%s)" -gt "$HB_DEADLINE" ] && { echo "FAIL: $svc heartbeat not stamped after promotion"; detect_diag; exit 1; }
+    [ "$(date +%s)" -gt "$HB_DEADLINE" ] && { FAILED=1; echo "FAIL: $svc heartbeat not stamped after promotion"; detect_diag; exit 1; }
     sleep 2
   done
 done
@@ -387,7 +402,7 @@ restore_node
 # Rejoined = the cluster is back to 1 leader + 2 replicas streaming on the
 # leader's timeline with no lag.
 wait_cluster_healthy 180 || {
-  echo "FAIL: spilo$PRIMARY_N did not rejoin as a streaming replica on the new timeline in 180s"
+  FAILED=1; echo "FAIL: spilo$PRIMARY_N did not rejoin as a streaming replica on the new timeline in 180s"
   docker logs --tail 20 "caib-spilo${PRIMARY_N}-1" 2>&1 | sed 's/^/   diag: /'; exit 1; }
 REJOIN_S=$(( $(date +%s) - T_RESTORE ))
 FAULT_NODE=""

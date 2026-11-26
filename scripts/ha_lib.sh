@@ -22,7 +22,15 @@ node_sql() { # $1 = node number, $2 = sql
 elapsed() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", b - a }'; }
 secs() { cut -d. -f1 <<<"$1"; }  # integer part of an elapsed value
 
-fail() { echo "FAIL: $*"; exit 1; }
+FAILED=""
+fail() { FAILED=1; echo "FAIL: $*"; exit 1; }
+# Unguarded command failures (set -e) and signals would otherwise exit with a
+# traceback or nothing at all; make every non-zero exit carry a FAIL line.
+on_err() { # $1 = line, $2 = status
+  [ "$BASH_SUBSHELL" = 0 ] || return 0
+  [ -n "$FAILED" ] && return 0
+  FAILED=1; echo "FAIL: command failed (exit $2) at ${BASH_SOURCE[1]:-$0}:$1: ${BASH_COMMAND}"
+}
 
 # alert row for a probe key: "event_count|new_outbox_rows|outbox_created_epoch"
 alert_state() {
@@ -42,6 +50,13 @@ probe_events() {
 detect_diag() {
   echo "   diag: heartbeats: $(sql "SELECT string_agg(service || ' ' || round(extract(epoch FROM now() - beat_at)) || 's ago', ', ') FROM ops.heartbeat" 2>/dev/null || echo '?')"
   echo "   diag: detect container: $(docker inspect -f '{{.State.Status}} restarts={{.RestartCount}}' caib-detect-1 2>/dev/null || echo missing)"
+}
+
+# Cluster/HAProxy/detect state, printed by the EXIT trap after any failure.
+failure_diag() {
+  echo "   diag: cluster members:"; cluster_members 2>/dev/null | sed 's/^/     /' || echo "     (no REST endpoint answers)"
+  echo "   diag: haproxy :5000 UP: $(haproxy_primary_up 2>/dev/null || echo '?')"
+  detect_diag
 }
 
 patroni_role() { # $1 = rest port, $2 = role path
