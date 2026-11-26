@@ -19,9 +19,9 @@ lookback: 15m
 sql: |
   SELECT
     coalesce(attrs->>'org', '-') || '|' || coalesce(target, '-')  AS dedup_key,
-    jsonb_build_object('org', attrs->>'org', 'new_owner', target,
-                       'actor', actor)                             AS entity,
+    jsonb_build_object('org', attrs->>'org', 'new_owner', target)  AS entity,
     jsonb_build_object('events', count(*)::int,
+                       'actors', jsonb_agg(DISTINCT actor),
                        'actions', jsonb_agg(DISTINCT action),
                        'old_permission',
                        jsonb_agg(DISTINCT attrs->>'old_permission'))  AS context,
@@ -31,4 +31,4 @@ sql: |
     AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
     AND action IN ('org.update_member', 'org.add_member')
     AND attrs->>'permission' = 'admin'
-  GROUP BY attrs->>'org', target, actor
+  GROUP BY attrs->>'org', target

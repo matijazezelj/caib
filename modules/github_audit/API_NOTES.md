@@ -163,6 +163,10 @@ Auth and plan
       the poller log)?
 - [ ] SAML SSO orgs: an un-authorized classic PAT returns 403 — confirm the
       message names SSO.
+- [ ] `X-GitHub-Api-Version: 2022-11-28` is still accepted for this endpoint
+      (value from recall of the REST docs, not re-read for this build).
+- [ ] GHE.com data residency: base URL really is
+      `https://api.<subdomain>.ghe.com` (from recall, not re-read).
 
 Endpoint and cursoring
 

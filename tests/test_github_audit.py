@@ -145,6 +145,9 @@ def test_fetch_pages_through_window(dummy_ctx):
     assert "after" not in p
     assert req["headers"]["Authorization"] == "Bearer test-token"
     assert req["headers"]["X-GitHub-Api-Version"] == "2022-11-28"
+    # '+00:00' must reach GitHub as %2B, not as a '+' that decodes to a space.
+    wire = httpx.Request("GET", req["url"], params=p).url.query.decode()
+    assert "%2B00%3A00.." in wire and "+" not in wire
 
     second = POLLER.fetch(first.next_cursor, ctx)
     assert len(second.envelopes) == len(PAGE2)
@@ -268,10 +271,10 @@ def test_rules_fire_on_fixtures_and_skip_benign_twins(migrated_db):
 
     assert alerts["github_audit.dead_man"] == []  # events just arrived
     assert alerts["github_audit.repo_made_public"] == [
-        {"repo": "example-org/payments-api", "actor": "alice"}
+        {"repo": "example-org/payments-api"}
     ]  # not old-website (made private)
     assert alerts["github_audit.org_owner_added"] == [
-        {"org": "example-org", "new_owner": "mallory", "actor": "alice"}
+        {"org": "example-org", "new_owner": "mallory"}
     ]  # not bob (demoted)
     assert alerts["github_audit.branch_protection_removed"] == [
         {"repo": "example-org/payments-api", "actor": "carol"}
@@ -295,6 +298,22 @@ def test_benign_fixtures_fire_nothing(migrated_db):
         land(conn, benign)
         alerts = fire_all(conn)
     assert {k: v for k, v in alerts.items() if v} == {}
+
+
+def test_two_actors_on_one_repo_fold_into_one_alert(migrated_db):
+    second = {**PAGE1[0], "_document_id": "second-actor", "actor": "mallory"}
+    with psycopg.connect(migrated_db) as conn:
+        land(conn, [PAGE1[0], second])
+        fire_all(conn)
+        row = conn.execute(
+            "SELECT entity, context, event_count FROM detect.alerts"
+            " WHERE rule_id = 'github_audit.repo_made_public'"
+        ).fetchall()
+    assert len(row) == 1
+    entity, context, count = row[0]
+    assert entity == {"repo": "example-org/payments-api"}
+    assert sorted(context["actors"]) == ["alice", "mallory"]
+    assert count == 2
 
 
 def test_narrow_classic_token_grant_does_not_fire(migrated_db):

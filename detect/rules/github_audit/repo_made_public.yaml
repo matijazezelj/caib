@@ -17,9 +17,9 @@ lookback: 15m
 sql: |
   SELECT
     coalesce(coalesce(attrs->>'repo', target), '-')                         AS dedup_key,
-    jsonb_build_object('repo', coalesce(attrs->>'repo', target),
-                       'actor', actor)                            AS entity,
+    jsonb_build_object('repo', coalesce(attrs->>'repo', target))  AS entity,
     jsonb_build_object('events', count(*)::int,
+                       'actors', jsonb_agg(DISTINCT actor),
                        'previous_visibility',
                        jsonb_agg(DISTINCT attrs->>'previous_visibility')) AS context,
     max(event_time)                                               AS last_event_time
@@ -28,4 +28,4 @@ sql: |
     AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
     AND action = 'repo.access'
     AND attrs->>'visibility' = 'public'
-  GROUP BY coalesce(attrs->>'repo', target), actor
+  GROUP BY coalesce(attrs->>'repo', target)
