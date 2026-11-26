@@ -67,10 +67,8 @@ Service account + **domain-wide delegation**, JWT bearer grant:
   (documented max 1h).
 - A fresh assertion is signed for every token request (a reused one expires
   after 1h). Token cached until 5 min before `expires_in`.
-- RS256 is implemented in pure Python (`_rs256_sign`, RSASSA-PKCS1-v1_5 +
-  SHA-256): the poller image ships only httpx and psycopg, and adding
-  `cryptography` needs a lockfile change. The test suite verifies our
-  signatures with `cryptography`. See DECISIONS.
+- RS256 (`_rs256_sign`, RSASSA-PKCS1-v1_5 + SHA-256) uses `cryptography`,
+  a direct dependency of the pollers package.
 - Key delivery: `CAIB_GOOGLE_WORKSPACE_SA_KEY_B64` (base64 of the JSON key).
   An env var rather than a bind-mounted file because the poller runs as uid
   10001 and a 0600 host-owned key file would be unreadable.
@@ -125,7 +123,7 @@ Cursor: `{"streams": {"<stream>": {"since": iso}}}` between windows;
 ## To verify live
 
 Auth
-- [ ] JWT bearer grant accepted with our pure-Python RS256 signature (first
+- [ ] JWT bearer grant accepted with our RS256 signature (first
       `--once` run proves it).
 - [ ] Error shape when delegation is missing (`unauthorized_client` 401?) and
       when the impersonated user lacks the Reports privilege (403 at the API?).

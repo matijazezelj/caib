@@ -5,8 +5,7 @@ modules/google_workspace/API_NOTES.md for what is verified vs assumed.
 
 Auth: a service account with domain-wide delegation impersonates an admin
 (JWT bearer grant, scope admin.reports.audit.readonly). The JWT is RS256-signed
-here in pure Python because the poller image ships only httpx + psycopg
-(DECISIONS: swap `_rs256_sign` for `cryptography` once the lock can change).
+with `cryptography`.
 
 Cursoring: one sub-cursor per stream (an application, optionally narrowed to
 one eventName, e.g. ``token:authorize``). Each window is
@@ -21,12 +20,13 @@ only: after a restart the first overlap re-lands and the loader dedups it.
 
 import base64
 import datetime
-import hashlib
 import json
 import os
 import time
 
 import httpx
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from caib_pollers.framework import Ctx, FetchResult
 
@@ -197,54 +197,24 @@ def envelopes(activity: dict) -> list[dict]:
     return [envelope(activity, i) for i in range(max(1, len(activity.get("events") or [])))]
 
 
-# --- auth: service account JWT bearer, RS256 in pure Python ------------------
+# --- auth: service account JWT bearer, RS256 via `cryptography` -------------
 
 
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
-def _der_items(buf: bytes) -> list[tuple[int, bytes]]:
-    """Top-level TLVs of a DER buffer (definite lengths only, as in PEM keys)."""
-    items, i = [], 0
-    while i < len(buf):
-        tag, length = buf[i], buf[i + 1]
-        i += 2
-        if length & 0x80:
-            n = length & 0x7F
-            length = int.from_bytes(buf[i:i + n], "big")
-            i += n
-        items.append((tag, buf[i:i + length]))
-        i += length
-    return items
-
-
-def _rsa_private_key(pem: str) -> tuple[int, int]:
-    """(n, d) from a PKCS#8 ("BEGIN PRIVATE KEY", what Google issues) or
-    PKCS#1 ("BEGIN RSA PRIVATE KEY") PEM."""
-    body = "".join(ln for ln in pem.strip().splitlines() if not ln.startswith("-----"))
-    (_, outer), = _der_items(base64.b64decode(body))
-    fields = _der_items(outer)
-    if fields[1][0] == 0x30:  # PKCS#8: version, AlgorithmIdentifier, OCTET STRING
-        (_, rsa_seq), = _der_items(fields[2][1])
-        fields = _der_items(rsa_seq)
-    ints = [int.from_bytes(v, "big") for tag, v in fields if tag == 0x02]
-    _version, n, _e, d = ints[:4]
-    return n, d
-
-
-_SHA256_DIGEST_INFO = bytes.fromhex("3031300d060960864801650304020105000420")
+def _rsa_key(pem: str) -> rsa.RSAPrivateKey:
+    """The service account's PEM key (PKCS#8 as Google issues it, or PKCS#1)."""
+    key = serialization.load_pem_private_key(pem.encode(), password=None)
+    if not isinstance(key, rsa.RSAPrivateKey):
+        raise TypeError("service account private_key is not an RSA key")
+    return key
 
 
 def _rs256_sign(message: bytes, pem: str) -> bytes:
-    """RSASSA-PKCS1-v1_5 with SHA-256 (RFC 8017 §8.2). Not constant-time —
-    acceptable for one signature per hour on a host the key already lives on;
-    replace with `cryptography` when the lockfile can take a new dependency."""
-    n, d = _rsa_private_key(pem)
-    k = (n.bit_length() + 7) // 8
-    t = _SHA256_DIGEST_INFO + hashlib.sha256(message).digest()
-    em = b"\x00\x01" + b"\xff" * (k - len(t) - 3) + b"\x00" + t
-    return pow(int.from_bytes(em, "big"), d, n).to_bytes(k, "big")
+    """RSASSA-PKCS1-v1_5 with SHA-256 (JWT RS256)."""
+    return _rsa_key(pem).sign(message, padding.PKCS1v15(), hashes.SHA256())
 
 
 def load_service_account() -> dict:
@@ -256,7 +226,7 @@ def load_service_account() -> dict:
         raise RuntimeError("google_workspace: CAIB_GOOGLE_WORKSPACE_SA_KEY_B64 is not set")
     try:
         key = json.loads(base64.b64decode(raw))
-        _rsa_private_key(key["private_key"])
+        _rsa_key(key["private_key"])
         if not key.get("client_email"):
             raise KeyError("client_email")
     except (ValueError, KeyError, TypeError, IndexError) as exc:  # never echo key material

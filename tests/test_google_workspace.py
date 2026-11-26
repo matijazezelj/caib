@@ -1,5 +1,5 @@
-"""google_workspace poller: envelope mapping, service-account auth (pure-Python
-RS256, checked against `cryptography`), windowed/overlapping cursor, and the
+"""google_workspace poller: envelope mapping, service-account auth (RS256 via
+`cryptography`), windowed/overlapping cursor, and the
 poll -> load -> re-poll -> dedup path against a real throwaway DB.
 
 Fixtures are SYNTHETIC (built from Google's docs; see API_NOTES.md)."""
@@ -10,8 +10,6 @@ import importlib.util
 import json
 import logging
 import pathlib
-import subprocess
-import sys
 
 import httpx
 import psycopg
@@ -174,17 +172,6 @@ def test_rs256_signature_verifies_with_cryptography(rsa_key, fmt):
     sig = gw._rs256_sign(msg, pem(rsa_key, fmt))
     # Raises InvalidSignature if our PKCS#1 v1.5 encoding is wrong.
     rsa_key.public_key().verify(sig, msg, padding.PKCS1v15(), hashes.SHA256())
-
-
-def test_module_does_not_need_cryptography():
-    """The poller image has only httpx + psycopg; the module must not import
-    cryptography or jwt (they exist in the dev venv via other packages)."""
-    code = (
-        "import sys; import caib_pollers.modules.google_workspace; "
-        "bad = {'cryptography', 'jwt', 'google'} & set(m.split('.')[0] for m in sys.modules); "
-        "assert not bad, bad"
-    )
-    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def sa_key(rsa_key) -> dict:
