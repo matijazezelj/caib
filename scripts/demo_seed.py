@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "pollers"))
 from caib_core import detect, loader, notify
 from caib_pollers.modules.azure_activity import envelope as az_envelope
 from caib_pollers.modules.cloudflare_audit import envelope as cf_envelope
+from caib_pollers.modules.github_audit import envelope as gh_envelope
 from caib_pollers.modules.slack_audit import envelope as slack_envelope
 
 UTC = datetime.UTC
@@ -192,12 +193,19 @@ def main() -> None:
         az_records.extend(
             json.loads((ROOT / "modules/azure_activity/fixtures" / page).read_text())["value"]
         )
+    gh_records = []
+    for page in ("audit_log_page1.json", "audit_log_page2.json"):
+        gh_records.extend(
+            json.loads((ROOT / "modules/github_audit/fixtures" / page).read_text())
+        )
 
     module_envelopes = (
         [("aws_cloudtrail", ct_envelope(r)) for r in ct_records]
         + [("cloudflare_audit", cf_envelope(r)) for r in cf_records]
         + [("gcp_audit", gcp_envelope(e)) for e in gcp_entries]
         + [("azure_activity", az_envelope(r)) for r in az_records]
+        + [("github_audit", gh_envelope(r)) for r in gh_records]
+
         + slack_envelopes()
     )
     batches: list[tuple[str, dict]] = []

@@ -144,6 +144,25 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  poller-github-audit:
+    image: caib-poller:dev
+    build:
+      context: .
+      dockerfile: pollers/Dockerfile
+    profiles: ["github_audit"]
+    environment:
+      CAIB_MODULE: github_audit
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
+      CAIB_GITHUB_TOKEN: ${CAIB_GITHUB_TOKEN:-}
+      CAIB_GITHUB_ORG: ${CAIB_GITHUB_ORG:-}
+      CAIB_GITHUB_API_URL: ${CAIB_GITHUB_API_URL:-}
+      CAIB_GITHUB_AUDIT_INCLUDE: ${CAIB_GITHUB_AUDIT_INCLUDE:-}
+      CAIB_GITHUB_AUDIT_BACKFILL: ${CAIB_GITHUB_AUDIT_BACKFILL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   poller-slack-audit:
     image: caib-poller:dev
     build:

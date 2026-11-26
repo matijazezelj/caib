@@ -1,0 +1,159 @@
+[
+  {
+    "@timestamp": 1795600800000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Ka",
+    "action": "org.disable_two_factor_requirement",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795600800000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "modify"
+  },
+  {
+    "@timestamp": 1795600950000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Kb",
+    "action": "repository_secret_scanning.disable",
+    "actor": "carol",
+    "actor_id": 1002,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795600950000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "modify",
+    "repo": "example-org/payments-api",
+    "repo_id": 555001,
+    "public_repo": true
+  },
+  {
+    "@timestamp": 1795601110000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Kc",
+    "action": "personal_access_token.access_granted",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795601110000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "access",
+    "user": "dave",
+    "repository_selection": "all",
+    "user_programmatic_access_name": "dave-laptop",
+    "user_programmatic_access_id": 7001
+  },
+  {
+    "@timestamp": 1795601205000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Kd",
+    "action": "personal_access_token.access_granted",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795601205000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "access",
+    "user": "erin",
+    "repository_selection": "selected",
+    "user_programmatic_access_name": "erin-docs-bot",
+    "user_programmatic_access_id": 7002,
+    "repositories": [
+      555002
+    ]
+  },
+  {
+    "@timestamp": 1795601400000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Ke",
+    "action": "integration_installation.create",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795601400000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "create",
+    "integration": "acme-deploy-bot",
+    "name": "acme-deploy-bot",
+    "repository_selection": "all",
+    "application_client_id": "Iv1.0123456789abcdef"
+  },
+  {
+    "@timestamp": 1795601520000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Kf",
+    "action": "org_credential_authorization.grant",
+    "actor": "dave",
+    "actor_id": 1002,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795601520000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "authentication",
+    "user": "dave",
+    "oauth_credential_type": "personal access token",
+    "managed_token_scopes": [
+      "repo",
+      "admin:org"
+    ],
+    "managed_token_id": 8001
+  },
+  {
+    "@timestamp": 1795601700000,
+    "_document_id": "R2b3C4d5E6f7G8h9I0j1Kg",
+    "action": "git.push",
+    "actor": "erin",
+    "actor_id": 1002,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795601700000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:R2B3C4",
+    "operation_type": "modify",
+    "repo": "example-org/old-website",
+    "repo_id": 555002,
+    "transport_protocol_name": "http",
+    "transport_protocol": 1,
+    "public_repo": false,
+    "programmatic_access_type": "OAuth access token"
+  }
+]
