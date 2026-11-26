@@ -283,7 +283,7 @@ To cut the next one:
 # 1. move the Unreleased section of CHANGELOG.md under a `## [x.y.z] - <date>`
 #    heading and open a fresh empty Unreleased above it
 # 2. green CI on main, plus the release confidence checklist above
-git -c gpg.format=ssh -c user.signingkey=~/.ssh/id_ed25519.pub \
+git -c gpg.format=ssh -c user.signingkey="$HOME/.ssh/id_ed25519.pub" \
   tag -s vX.Y.Z -m "caib X.Y.Z"
 git push origin vX.Y.Z
 ```
