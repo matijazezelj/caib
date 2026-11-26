@@ -983,3 +983,27 @@ real ID, title, author and DRL 1.1 link. Going forward: cite only IDs that exist
 upstream, with DRL attribution if the rule is based on one. Open: the Sigma->SQL
 converter emits only the Sigma ID; DRL 1.1 also wants author, link and licence
 kept in shared converted rules (and the author in match messages).
+
+## 2026-11-26 — Public-release audit; wording; GitHub security settings
+
+The repo is public, so it was audited as already exposed. gitleaks and
+trufflehog ran over a mirror clone (216 commits including PR refs), PR text
+and the available CI logs. There were two gitleaks hits in history, both false
+positives: a shell variable holding the lab default, and a synthetic
+Cloudflare `token_id`. Nothing needed rotating. History is not rewritten:
+PR refs and existing clones would keep the old commits anyway.
+
+Applied with the owner's agreement:
+- New commits use the GitHub noreply address. Older commits keep a personal
+  address; that was accepted.
+- Secret scanning, push protection, Dependabot alerts and security fixes,
+  CodeQL default setup, and private vulnerability reporting are on.
+- `main` has no branch ruleset yet. It was offered with the other settings and
+  not chosen this round.
+- Business-context wording was neutralised. That covers four phrases in the
+  spec, among them "fractional CISO client" and "consulting-pitch artifact",
+  plus one in CLAUDE.md. Wording only; no locked decision changed.
+
+The audit found that five detection rules cite Sigma IDs which do not exist
+upstream. They are being corrected in the public-polish PR, along with README,
+SECURITY.md and community-file fixes.

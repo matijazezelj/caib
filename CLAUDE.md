@@ -40,11 +40,29 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
    Enterprise Grid token, Zoom S2S app, KnowBe4 key.
 5. ~~Agent query layer~~ — done (`docs/AGENT_API.md`).
 6. ~~Reliability/ops backlog~~ — done.
-7. ~~Supply chain / CI~~ — done. Left: repo still private, no signing key for
-   tagged releases.
-8. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
-   bottom of the spec); a consulting blog post from the bench + DECISIONS
-   findings.
+7. ~~Supply chain / CI~~ — done. Left: no signing key for tagged releases. The
+   repo is public (since November 2026); GitHub secret scanning + push
+   protection, Dependabot alerts, CodeQL and private vulnerability reporting
+   are on. `main` has no ruleset yet (offered 2026-11-26, not chosen).
+8. **Public-release follow-ups** (from the 2026-11-26 audit/agent round):
+   - Live-verify the Vector modules first: until the image batch (#72),
+     their `${CAIB_PG_URL}` endpoint was never interpolated, so CloudTrail/GCP
+     ingestion via Vector has never worked outside tests.
+   - Test containers leak anonymous volumes: `docker rm -f` without `-v` in
+     `tests/conftest.py`, `tests/test_vector_cloudtrail.py`,
+     `scripts/restore_test.sh`.
+   - `make restore-test` passes with 0 events on a fresh volume; seed first.
+   - Sigma converter (`caib_core.sigma.to_yaml`) drops author/link/DRL 1.1
+     attribution that the licence asks to keep.
+   - Untested: HA rolling upgrade to pg18.7, hard-kill failover (30s TTL),
+     HA/Grafana/etcd images on amd64, bench on TimescaleDB 2.32.1.
+   - Remaining audit P2: commit signing + tag ruleset, Actions approval for
+     outside contributors, CHANGELOG `docker` dependabot line says three dirs
+     (four since `backup/`).
+   - Reviewer P1/P2 not started: Google Workspace, GitHub org, Entra ID, Slack
+     modules; HIB integration; Prowler findings; wider Sigma compatibility.
+9. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
+   bottom of the spec); a blog post from the bench + DECISIONS findings.
 
 ## How to work here (habits the user approved)
 
@@ -78,8 +96,8 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
   container per session; CI uses a service container).
 - `make up` auto-creates `.env` with **generated** passwords
   (`scripts/init_env.sh`); `scripts/preflight.sh` then refuses to start if the
-  example passwords meet a non-loopback `CAIB_BIND_ADDR` (both ports are
-  loopback-bound by default).
+  example passwords meet a non-loopback `CAIB_BIND_ADDR` (Postgres, Grafana
+  and the agent API all publish to loopback by default).
   Stack: `make up` / `make demo` (no creds, seeds all 4 modules, fires alerts)
   / `make down`. Volumes persist across down/up.
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`

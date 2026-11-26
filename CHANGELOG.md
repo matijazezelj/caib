@@ -62,6 +62,13 @@ are not itemised here; what follows is what changed after it, by pull request.
 - CI: read-only token at workflow level; gitleaks history scan (digest-pinned image,
   reviewed false positives in .gitleaksignore).
 
+### Public-release audit
+
+- Audited the public repo (history, PR text, CI logs, docs, GitHub settings):
+  no real secrets. GitHub secret scanning, push protection, Dependabot alerts,
+  CodeQL and private vulnerability reporting enabled; business-context wording
+  in the spec neutralised.
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent
