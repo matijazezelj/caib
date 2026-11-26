@@ -1,0 +1,84 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T10:02:09.118Z",
+        "uniqueQualifier": "7712345678901234503",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login-7712345678901234503\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "dave@example.com",
+        "profileId": "100000000000000000004"
+      },
+      "events": [
+        {
+          "type": "attack_warning",
+          "name": "gov_attack_warning",
+          "parameters": [
+            {
+              "name": "affected_email_address",
+              "value": "dave@example.com"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T10:15:44.900Z",
+        "uniqueQualifier": "3312345678901234504",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login-3312345678901234504\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "erin@example.com",
+        "profileId": "100000000000000000005"
+      },
+      "events": [
+        {
+          "type": "email_forwarding_change",
+          "name": "email_forwarding_out_of_domain",
+          "parameters": [
+            {
+              "name": "email_forwarding_destination_address",
+              "value": "drop@exfil.example.net"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "198.51.100.99"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T10:40:00.001Z",
+        "uniqueQualifier": "2212345678901234505",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login-2212345678901234505\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "alice@example.com",
+        "profileId": "100000000000000000001"
+      },
+      "events": [
+        {
+          "type": "2sv_change",
+          "name": "2sv_enroll",
+          "parameters": []
+        }
+      ],
+      "ipAddress": "203.0.113.10"
+    }
+  ]
+}

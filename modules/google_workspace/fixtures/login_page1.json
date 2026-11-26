@@ -1,0 +1,127 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T09:12:03.512Z",
+        "uniqueQualifier": "-4412345678901234567",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login--4412345678901234567\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "alice@example.com",
+        "profileId": "100000000000000000001"
+      },
+      "events": [
+        {
+          "type": "login",
+          "name": "login_success",
+          "parameters": [
+            {
+              "name": "login_type",
+              "value": "google_password"
+            },
+            {
+              "name": "login_challenge_method",
+              "multiValue": [
+                "password",
+                "google_authenticator"
+              ]
+            },
+            {
+              "name": "is_suspicious",
+              "boolValue": false
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.10",
+      "networkInfo": {
+        "regionCode": "HR",
+        "subdivisionCode": "HR-21",
+        "ipAsn": [
+          64500
+        ]
+      }
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T09:20:41.007Z",
+        "uniqueQualifier": "5512345678901234501",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login-5512345678901234501\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "bob@example.com",
+        "profileId": "100000000000000000002"
+      },
+      "events": [
+        {
+          "type": "login",
+          "name": "login_failure",
+          "parameters": [
+            {
+              "name": "login_type",
+              "value": "google_password"
+            },
+            {
+              "name": "login_challenge_method",
+              "multiValue": [
+                "password"
+              ]
+            },
+            {
+              "name": "login_failure_type",
+              "value": "login_failure_invalid_password"
+            },
+            {
+              "name": "is_suspicious",
+              "boolValue": false
+            }
+          ]
+        }
+      ],
+      "ipAddress": "198.51.100.23"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T09:31:15.220Z",
+        "uniqueQualifier": "-1012345678901234502",
+        "applicationName": "login",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-login--1012345678901234502\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "carol@example.com",
+        "profileId": "100000000000000000003"
+      },
+      "events": [
+        {
+          "type": "account_warning",
+          "name": "suspicious_login",
+          "parameters": [
+            {
+              "name": "affected_email_address",
+              "value": "carol@example.com"
+            },
+            {
+              "name": "login_timestamp",
+              "intValue": "1764063075000000"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "192.0.2.77"
+    }
+  ],
+  "nextPageToken": "synthetic-page-token-login-2"
+}

@@ -156,12 +156,14 @@ name = "caib-pollers"
 version = "0.1.0"
 source = { editable = "pollers" }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=46" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.9" },
 ]

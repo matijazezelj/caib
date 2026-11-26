@@ -1,0 +1,33 @@
+# Google's own risk engine flagged an account: a suspicious sign-in, a
+# government-backed attack warning, or an account Google disabled as hijacked.
+# These are rare and each one deserves a look.
+# Based on two SigmaHQ rules, Detection Rule License 1.1:
+#   38360161-76c4-4283-842e-efcf997dafc8 "Suspicious Login Activity Classified
+#   By Google" by Tom Kluter
+#   (https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/gcp/gworkspace/login/gcp_gworkspace_suspicious_login.yml)
+#   eafe6f2b-cfec-4612-aec2-49563c33a087 "Google Workspace Government Attack
+#   Warning" by Tom Kluter
+#   (https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/gcp/gworkspace/login/gcp_gworkspace_govattack.yml)
+# Ours adds account_disabled_hijacked and raises the level to high.
+id: google_workspace.login_risk_signal
+enabled: true
+module: google_workspace
+title: "Google Workspace flagged a suspicious login or attack on an account"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || action                      AS dedup_key,
+    jsonb_build_object('actor', actor, 'signal', action)       AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'src_ips', jsonb_agg(DISTINCT host(src_ip))) AS context,
+    max(event_time)                                            AS last_event_time
+  FROM caib.events
+  WHERE module = 'google_workspace'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND attrs->>'application' = 'login'
+    AND action IN ('suspicious_login', 'suspicious_login_less_secure_app',
+                   'suspicious_programmatic_login', 'gov_attack_warning',
+                   'account_disabled_hijacked')
+  GROUP BY actor, action
