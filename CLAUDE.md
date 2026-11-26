@@ -102,10 +102,10 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
   / `make down`. Volumes persist across down/up.
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`
   (needs `make ha-up` first), `make restore-test`.
-- Images pinned: timescaledb 2.30.0-pg18 (TSL — never the `-oss` builds, CI
-  asserts the license), vector 0.58.0-debian, grafana 13.2.2, HA nodes
-  `timescale/timescaledb-ha:pg18.6-ts2.30.0` (ships Patroni + pgBackRest +
-  pg_textsearch). pg19 has no TimescaleDB build yet.
+- Images pinned: timescaledb 2.32.1-pg18 (TSL — never the `-oss` builds, CI
+  asserts the license), vector 0.62.0-debian, grafana 13.3.1, HA nodes
+  `timescale/timescaledb-ha:pg18.7-ts2.32.1` (ships Patroni + pgBackRest +
+  pg_textsearch), etcd v3.7.4, uv 0.13.10. pg19 has no TimescaleDB build yet.
 
 ## Gotchas that cost real time (details in DECISIONS.md / HOWTO)
 
@@ -116,6 +116,9 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 - **Both loops stamp `ops.heartbeat` every cycle**; compose healthchecks run
   `caib-core healthcheck --service X --max-age 120`. A healthcheck does not
   restart or page anything — external monitoring still owns liveness.
+- **Vector `${VAR}` needs `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true`**
+  (off by default since 0.57; without it the endpoint is the literal string).
+  Every Vector compose service sets it; `tests/test_compose_env.py` checks.
 - **Spilo is a trap**: published images ship Apache-only TimescaleDB. HA uses
   timescaledb-ha instead; service names stay `spilo1..3` to match the spec's
   HAProxy config.

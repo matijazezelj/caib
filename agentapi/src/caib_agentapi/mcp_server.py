@@ -43,10 +43,13 @@ with SELECT on five tables and no write privilege at all. There is no tool to
 acknowledge, close, silence or create an alert, and adding one would take a
 database migration, not a flag.
 
-Times are UTC everywhere. Raw events are retained 90 days, so no tool will look
-further back than that. Every listing tool caps its own result size and reports
-`truncated` and the effective `window` it used — read those before concluding
-that something did or did not happen.\
+Times are UTC everywhere. Raw events are kept as long as this deployment's
+retention policy says (90 days by default; it can be years, or forever). Event
+tools clamp `since` to that retention, since nothing older exists, and report
+the ceiling they applied as `window.max_lookback_days` (null: no retention, no
+clamp). Alerts are not clamped. Every listing tool caps its own result size and
+reports `truncated` and the effective `window` it used — read those before
+concluding that something did or did not happen.\
 """
 
 # Reused parameter annotations, so the wording an agent reads is the same in
@@ -54,7 +57,8 @@ that something did or did not happen.\
 Since = Annotated[
     str | None,
     Field(description="Start of the window, ISO-8601 (e.g. 2026-09-01T00:00:00Z). "
-                      "Naive timestamps are read as UTC. Clamped to 90 days ago."),
+                      "Naive timestamps are read as UTC. Clamped to the raw-event "
+                      "retention (window.max_lookback_days)."),
 ]
 AlertSince = Annotated[
     str | None,

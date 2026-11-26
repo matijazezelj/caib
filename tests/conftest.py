@@ -17,7 +17,7 @@ import pytest
 from caib_core import migrate
 from caib_pollers.framework import Ctx
 
-TSDB_IMAGE = "timescale/timescaledb:2.30.0-pg18"
+TSDB_IMAGE = "timescale/timescaledb:2.32.1-pg18"
 MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "db" / "migrations"
 
 
@@ -149,7 +149,7 @@ SEED_EVENTS = (
      "arn:aws:s3:::bar-staging", 25, None),
     ("aws_cloudtrail", "bob@example.com", "DeleteBucket", "failure", "high",
      "arn:aws:s3:::bar-staging", 30, None),
-    ("gcp_audit", "svc@proj.iam.gserviceaccount.com", "SetIamPolicy", "success", "high",
+    ("gcp_audit", "svc@example-project.iam.gserviceaccount.com", "SetIamPolicy", "success", "high",
      "projects/proj", 35, {"protoPayload": {"secret": "unsanitised-vendor-blob"}}),
     # Outside the default 24h window, inside the 90d retention floor: proves the
     # window filter bites and gives the wider-window assertions something to find.

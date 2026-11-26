@@ -24,9 +24,11 @@ Do not open a public GitHub issue for a vulnerability.
 
 ## Scope
 
-**In scope:** this repository — the Python in `core/` and `pollers/`, the SQL
-in `db/migrations/`, the detection rules, the Vector configs, the compose
-files, the Dockerfiles, and the scripts in `scripts/`.
+**In scope:** this repository — the Python in `core/`, `pollers/` and
+`agentapi/` (the token-authenticated agent API and MCP server), the SQL in
+`db/migrations/`, the detection rules, the Vector configs, the compose files
+and the HA (`ha/`) and backup (`backup/`) configs, the Dockerfiles, and the
+scripts in `scripts/`.
 
 **Out of scope:** the vendor APIs CAIB polls (Cloudflare, GCP, Azure, AWS) and
 the upstream images it pins (TimescaleDB, Vector, Grafana, Patroni, HAProxy,
@@ -42,12 +44,25 @@ behaviour rather than bugs.
 Read [docs/DEPLOY.md](docs/DEPLOY.md) before putting this on a host that is not
 your laptop. The short version of what is deliberately absent:
 
-- **There is no authentication or TLS in front of Postgres or Grafana beyond
-  loopback binding.** Both ports publish to `127.0.0.1` by default
-  (`CAIB_BIND_ADDR`), and that is the entire access control story. Reaching
-  Grafana from elsewhere is your SSH tunnel or your TLS reverse proxy to build.
+- **There is no TLS and no extra auth layer in front of Postgres, Grafana or
+  the agent API.** Each has its own login (database passwords, the Grafana
+  admin password, the agent API bearer token); beyond that, the only access
+  control is the bind address. The base compose file publishes Postgres (5432),
+  Grafana (3000) and the optional agent API (8088) on `CAIB_BIND_ADDR`, which
+  defaults to `127.0.0.1`. The HA overlay (`compose.ha.yml`) publishes HAProxy
+  (5000, 5001, 7000) and the three Patroni REST APIs (8008-8010) on
+  `127.0.0.1`, hard-coded rather than following `CAIB_BIND_ADDR`. Reaching
+  any of them from elsewhere is your SSH tunnel or your TLS reverse proxy to
+  build.
   Note that Docker publishes ports in its own iptables chain, ahead of ufw and
   firewalld — a firewall rule will not save a `0.0.0.0` bind.
+- **The HA overlay's control endpoints have no authentication configured.**
+  `ha/patroni.yml` sets no `restapi` authentication, so the Patroni REST API
+  (which includes switchover and restart endpoints) is open to anything on the
+  compose network and, via the published ports, to host loopback. The same
+  goes for the HAProxy stats page on 7000 (`ha/haproxy.cfg`) and the single
+  etcd node (plain HTTP, compose network only). The overlay is lab-shaped; see
+  [docs/DEPLOY.md](docs/DEPLOY.md) before running it anywhere shared.
 - **Secrets are container environment variables.** Anyone in the `docker` group
   can read them with `docker inspect`.
 - **No multi-tenancy.** Everything that can read the database can read every

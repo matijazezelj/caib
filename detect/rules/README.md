@@ -65,7 +65,10 @@ It stays open until a human closes it.
   (e.g. `LIKE '%%AdministratorAccess%%'`).
 - Rules read only documented `attrs` keys (see the module's MAPPING.md), never
   ad-hoc paths into `raw`.
-- Where a rule maps to a public Sigma cloud rule, note the Sigma ID in a
-  comment.
+- Where a rule is converted from or based on a SigmaHQ rule, say so in a
+  comment with the upstream ID, title, author and link, and that it is under
+  the [Detection Rule License 1.1](https://github.com/SigmaHQ/Detection-Rule-License).
+  Check the ID exists upstream first. A rule written from scratch says so;
+  a related upstream rule can be named as "related, not derived".
 - A rule over the per-tick cap (`CAIB_DETECT_MAX_ALERTS_PER_TICK`) produces one
   meta-alert instead of a flood, and the watermark still advances.

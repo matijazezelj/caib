@@ -1,4 +1,5 @@
-# Sigma: dfaaa5e3-f1f8-4b8e-b422-a0b9bcc70597 (GCP granting owner/editor)
+# CAIB's own rule: a SetIamPolicy call that adds roles/owner or roles/editor
+# (attrs.roles_added). No SigmaHQ equivalent.
 id: gcp_audit.iam_privileged_grant
 enabled: true
 module: gcp_audit

@@ -1,4 +1,10 @@
-# Sigma: 461f6dad-cd58-40d1-9427-a2e33524b33f (AWS CloudTrail Important Change)
+# CAIB's own rule: CloudTrail logging stopped, a trail deleted, or its event
+# selectors changed (StopLogging / DeleteTrail / PutEventSelectors). Not derived
+# from Sigma. Related upstream rule, which matches StopLogging / UpdateTrail /
+# DeleteTrail: SigmaHQ "AWS CloudTrail Important Change", id
+# 4db60cc0-36fb-42b7-9b58-a5b53019fb74, author vitaliy0x1,
+# https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/aws/cloudtrail/aws_cloudtrail_disable_logging.yml
+# (Detection Rule License 1.1).
 id: aws_cloudtrail.trail_tampering
 enabled: true
 module: aws_cloudtrail

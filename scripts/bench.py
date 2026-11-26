@@ -23,7 +23,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "core"))
 from caib_core import loader, migrate
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TSDB_IMAGE = "timescale/timescaledb:2.30.0-pg18"
+TSDB_IMAGE = "timescale/timescaledb:2.32.1-pg18"
 UTC = datetime.UTC
 
 N_EVENTS = 1_000_000
@@ -118,7 +118,7 @@ def gcp_envelope(rng: random.Random, ts: str) -> dict:
         "actor": actor,
         "src_ip": ip,
         "action": action,
-        "target": f"projects/acme-prod/serviceAccounts/sa-{rng.randrange(40)}",
+        "target": f"projects/example-project/serviceAccounts/sa-{rng.randrange(40)}",
         "outcome": "failure" if denied else "success",
         "severity": "low" if denied else "info",
         "attrs": {
@@ -129,7 +129,7 @@ def gcp_envelope(rng: random.Random, ts: str) -> dict:
         "raw": {
             "insertId": event_id,
             "timestamp": ts,
-            "logName": "projects/acme-prod/logs/cloudaudit.googleapis.com%2Factivity",
+            "logName": "projects/example-project/logs/cloudaudit.googleapis.com%2Factivity",
             "severity": "ERROR" if denied else "NOTICE",
             "protoPayload": {
                 "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
@@ -140,10 +140,10 @@ def gcp_envelope(rng: random.Random, ts: str) -> dict:
                 },
                 "serviceName": "iam.googleapis.com",
                 "methodName": action,
-                "resourceName": f"projects/acme-prod/serviceAccounts/sa-{rng.randrange(40)}",
+                "resourceName": f"projects/example-project/serviceAccounts/sa-{rng.randrange(40)}",
                 "status": {"code": 7, "message": "PERMISSION_DENIED"} if denied else {},
             },
-            "resource": {"type": "service_account", "labels": {"project_id": "acme-prod"}},
+            "resource": {"type": "service_account", "labels": {"project_id": "example-project"}},
         },
     }
 

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/matijazezelj/caib/blob/main/SECURITY.md
+    about: Please do not open a public issue for vulnerabilities. Follow SECURITY.md to report privately.

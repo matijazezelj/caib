@@ -1,4 +1,6 @@
-# Sigma: 4f19fe5b-eab9-4d25-834f-a0c9d40ef1d1 (AWS SG open to the world)
+# CAIB's own rule: a security-group ingress rule opened to all of IPv4
+# (AuthorizeSecurityGroupIngress whose request contains 0.0.0.0/0, surfaced by the
+# Vector transform as attrs.world_open). No SigmaHQ equivalent.
 id: aws_cloudtrail.sg_open_ingress
 enabled: true
 module: aws_cloudtrail

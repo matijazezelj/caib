@@ -12,7 +12,7 @@ from psycopg.types.json import Jsonb
 
 SIGMA_ROOT_LOGIN = yaml.safe_load("""
 title: AWS Root Credentials Console Login
-id: 8f0f7e57-9f18-46ae-b1ee-e2a03c73643b
+id: 00000000-0000-4000-8000-000000000001
 status: stable
 level: high
 logsource: {product: aws, service: cloudtrail}
@@ -29,7 +29,7 @@ detection:
 
 def test_convert_produces_valid_rule_that_fires(migrated_db, tmp_path):
     rule_yaml = to_yaml(convert(SIGMA_ROOT_LOGIN, "aws_cloudtrail"))
-    assert "# Converted from Sigma rule 8f0f7e57" in rule_yaml
+    assert "# Converted from Sigma rule 00000000-0000-4000-8000-000000000001" in rule_yaml
     path = tmp_path / "sigma_root.yaml"
     path.write_text(rule_yaml)
 
@@ -145,6 +145,9 @@ def test_resolve_format():
     assert notify.resolve_format("", "https://example.com/hook") == "json"
     assert notify.resolve_format("json", "https://hooks.slack.com/services/T/B/x") == "json"
     assert notify.resolve_format("slack", "https://example.com/hook") == "slack"
+    # Hostname match, not substring: a look-alike URL is not Slack.
+    assert notify.resolve_format("", "https://hooks.slack.com.example.com/x") == "json"
+    assert notify.resolve_format("", "https://example.com/?u=hooks.slack.com") == "json"
 
 
 def test_drain_sends_blocks_when_slack_format(migrated_db, webhook_capture):

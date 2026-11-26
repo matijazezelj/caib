@@ -124,7 +124,10 @@ VRL gotchas that cost us real debugging time (all Vector 0.57.0):
 
 Compose: each push module gets its own Vector service
 (`vector-<m>`) behind its profile, sharing `vector/vector.yaml` (the postgres
-sink) plus its module file, with its own disk-buffer volume.
+sink) plus its module file, with its own disk-buffer volume. Copy
+`VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"` into its
+`environment:`: since Vector 0.57 `${CAIB_*}` in the config stays a literal
+string without it (`tests/test_compose_env.py` checks every Vector service).
 
 Tests to copy from `tests/test_vector_gcp.py` / `test_vector_cloudtrail.py`:
 
@@ -147,7 +150,8 @@ Read `detect/rules/README.md` first (the SQL contract, the three shapes, the
 - Rules read only attrs documented in MAPPING.md. If a detection needs a field
   that's only in `raw`, extend the collector to surface it as an attr (that's
   what `policy_arn`/`world_open`/`roles_added` are).
-- Where a rule maps to a public Sigma rule, note the Sigma ID in a comment.
+- Where a rule is based on a SigmaHQ rule, cite its real ID, title, author and
+  link plus the Detection Rule License 1.1 (see `detect/rules/README.md`).
 
 ## 5. Dashboard
 
