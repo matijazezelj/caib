@@ -1,0 +1,138 @@
+[
+  {
+    "@timestamp": 1795597201000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jk",
+    "action": "repo.access",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795597201000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "modify",
+    "repo": "example-org/payments-api",
+    "repo_id": 555001,
+    "visibility": "public",
+    "previous_visibility": "private",
+    "public_repo": true
+  },
+  {
+    "@timestamp": 1795597512000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jl",
+    "action": "repo.access",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795597512000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "modify",
+    "repo": "example-org/old-website",
+    "repo_id": 555002,
+    "visibility": "private",
+    "previous_visibility": "public",
+    "public_repo": false
+  },
+  {
+    "@timestamp": 1795597840000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jm",
+    "action": "org.update_member",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795597840000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "modify",
+    "user": "mallory",
+    "user_id": 2002,
+    "permission": "admin",
+    "old_permission": "read"
+  },
+  {
+    "@timestamp": 1795597923000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jn",
+    "action": "org.update_member",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795597923000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "modify",
+    "user": "bob",
+    "user_id": 2003,
+    "permission": "read",
+    "old_permission": "admin"
+  },
+  {
+    "@timestamp": 1795598455000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jo",
+    "action": "protected_branch.destroy",
+    "actor": "carol",
+    "actor_id": 1002,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795598455000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "remove",
+    "repo": "example-org/payments-api",
+    "repo_id": 555001,
+    "name": "main",
+    "public_repo": true,
+    "programmatic_access_type": "Fine-grained personal access token",
+    "user_programmatic_access_name": "ci-cleanup"
+  },
+  {
+    "@timestamp": 1795598700000,
+    "_document_id": "Q1a2B3c4D5e6F7g8H9i0Jp",
+    "action": "repo.create",
+    "actor": "alice",
+    "actor_id": 1001,
+    "actor_location": {
+      "country_code": "HR"
+    },
+    "business": "example-ent",
+    "business_id": 42,
+    "created_at": 1795598700000,
+    "org": "example-org",
+    "org_id": 9001,
+    "user_agent": "Mozilla/5.0",
+    "request_id": "C0DE:Q1A2B3",
+    "operation_type": "create",
+    "repo": "example-org/scratch",
+    "repo_id": 555003,
+    "visibility": "private",
+    "public_repo": false
+  }
+]

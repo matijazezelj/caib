@@ -1,0 +1,27 @@
+# Written from scratch for CAIB (no SigmaHQ basis). A member becoming an
+# admin or owner, ownership moving, or a custom admin role being assigned is
+# the privilege change an attacker with one admin session makes first to keep
+# access. Slack has no single "role changed" action: the new role is in the
+# action name itself (role_change_to_*), so no details parsing is needed.
+# Demotions (role_change_to_user/guest) deliberately do not match.
+id: slack_audit.admin_role_granted
+enabled: true
+module: slack_audit
+title: "Slack admin/owner role granted"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-') || '|' || action AS dedup_key,
+    jsonb_build_object('actor', actor, 'member', target,
+                       'member_name', attrs->>'entity_name', 'role_action', action) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'locations', jsonb_agg(DISTINCT attrs->>'location_name')) AS context,
+    max(event_time)                                                         AS last_event_time
+  FROM caib.events
+  WHERE module = 'slack_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN ('role_change_to_admin', 'role_change_to_owner',
+                   'owner_transferred', 'role_assigned')
+  GROUP BY actor, target, action, attrs->>'entity_name'

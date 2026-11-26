@@ -1028,3 +1028,22 @@ signs it (`gpg.format=ssh`, passed per command so the global git config is
 unchanged). GitHub shows a tag as Verified only once that key is also
 registered as a *signing* key on the account, which the owner does. The
 README documents verification with an allowed-signers file built from that URL.
+
+## 2026-11-26 — MCP tools annotated read-only; HIB integration designed, not built
+
+A read-only design pass for the v0.2 P2 item "HIB integration and cross-project
+investigations" found that HIB passes only tools carrying `readOnlyHint`.
+CAIB's seven tools had no annotations, so HIB listed 7 and offered 0. Every
+tool now carries `ToolAnnotations(read_only_hint=True, destructive_hint=False,
+idempotent_hint=True, open_world_hint=False)`, and a test asserts all seven.
+The hint is advisory for clients; `caib_agent_ro` remains the enforcement.
+
+The rest of the design is in `docs/design/HIB_INTEGRATION.md` and is not built.
+- The CloudTrail access key ID survives only in `raw`, so it can't be searched.
+- `actor_activity` puts `by_action` after `events`, where a client-side cut can
+  drop it.
+- There is no exact `src_ip` filter.
+- SIB has no agent-safe query API.
+- HIB's guard leaves ARNs, hosts and account IDs readable.
+
+The owner's open questions are listed at the end of that document.

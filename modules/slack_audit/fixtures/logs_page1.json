@@ -1,0 +1,250 @@
+{
+  "_comment": "SYNTHETIC: built from Slack's Audit Logs API docs (docs.slack.dev, read 2026-11-26), not captured from a live org. Replace with a sanitized real response at first live run; see modules/slack_audit/API_NOTES.md.",
+  "entries": [
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab001",
+      "date_create": 1787476504,
+      "action": "user_login",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "enterprise",
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab002",
+      "date_create": 1787476811,
+      "action": "role_change_to_admin",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0CAROL003",
+          "name": "Carol Contractor",
+          "email": "carol@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab003",
+      "date_create": 1787477500,
+      "action": "app_installed",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0BOB00002",
+          "name": "Bob Builder",
+          "email": "bob@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "app",
+        "app": {
+          "id": "A0SHADYAPP",
+          "name": "Export Helper",
+          "is_distributed": true,
+          "is_directory_approved": false,
+          "is_workflow_app": false,
+          "scopes": [
+            "channels:history",
+            "files:read",
+            "users:read.email"
+          ],
+          "bot_scopes": [
+            "chat:write"
+          ]
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "198.51.100.12",
+        "session_id": "847288190092",
+        "app": {
+          "id": "A0SHADYAPP",
+          "name": "Export Helper",
+          "scopes": [
+            "channels:history",
+            "files:read",
+            "users:read.email"
+          ],
+          "scopes_bot": [
+            "chat:write"
+          ],
+          "creator": "W0BOB00002",
+          "team": "T0EXAMPLE1"
+        }
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab004",
+      "date_create": 1787478451,
+      "action": "pref.sso_setting_changed",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "enterprise",
+        "enterprise": {
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "enterprise",
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      },
+      "details": {
+        "previous_value": "required",
+        "new_value": "optional"
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab005",
+      "date_create": 1787479337,
+      "action": "anomaly",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0CAROL003",
+          "name": "Carol Contractor",
+          "email": "carol@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "user",
+        "user": {
+          "id": "W0CAROL003",
+          "name": "Carol Contractor",
+          "email": "carol@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "workspace",
+          "id": "T0EXAMPLE1",
+          "name": "Example Eng",
+          "domain": "example-eng"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "192.0.2.77",
+        "session_id": "847288190092"
+      },
+      "details": {
+        "action_timestamp": 1787479290989994,
+        "location": "Reno, Nevada",
+        "previous_ip_address": "203.0.113.90",
+        "previous_ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "reason": [
+          "ip_address",
+          "tor"
+        ],
+        "ip_address_details": [
+          "in-ioc-list"
+        ]
+      }
+    },
+    {
+      "id": "0b1e8a52-6c7d-4900-a12f-3456789ab006",
+      "date_create": 1787479918,
+      "action": "manual_export_started",
+      "actor": {
+        "type": "user",
+        "user": {
+          "id": "W0ALICE001",
+          "name": "Alice Admin",
+          "email": "alice@example.com",
+          "team": "T0EXAMPLE1"
+        }
+      },
+      "entity": {
+        "type": "enterprise",
+        "enterprise": {
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        }
+      },
+      "context": {
+        "location": {
+          "type": "enterprise",
+          "id": "E0EXAMPLE1",
+          "name": "Example Corp",
+          "domain": "example-corp"
+        },
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "ip_address": "203.0.113.44",
+        "session_id": "847288190092"
+      }
+    }
+  ],
+  "response_metadata": {
+    "next_cursor": "ZXZlbnRfaWQ6MGIxZThhNTItNmM3ZA=="
+  }
+}
