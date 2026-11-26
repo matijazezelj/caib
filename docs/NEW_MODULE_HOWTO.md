@@ -150,7 +150,8 @@ Read `detect/rules/README.md` first (the SQL contract, the three shapes, the
 - Rules read only attrs documented in MAPPING.md. If a detection needs a field
   that's only in `raw`, extend the collector to surface it as an attr (that's
   what `policy_arn`/`world_open`/`roles_added` are).
-- Where a rule maps to a public Sigma rule, note the Sigma ID in a comment.
+- Where a rule is based on a SigmaHQ rule, cite its real ID, title, author and
+  link plus the Detection Rule License 1.1 (see `detect/rules/README.md`).
 
 ## 5. Dashboard
 

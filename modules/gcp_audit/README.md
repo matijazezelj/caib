@@ -5,7 +5,7 @@ GCP Cloud Audit Logs → Log Router → Pub/Sub → Vector → CAIB.
 ## Cloud-side setup (copy-paste CLI)
 
 ```sh
-PROJECT=acme-prod
+PROJECT=example-project
 TOPIC=caib-audit
 SUB=caib-audit-sub
 SA=caib-vector
@@ -44,7 +44,7 @@ with the same filter.
 In `.env`:
 
 ```
-CAIB_GCP_PROJECT=acme-prod
+CAIB_GCP_PROJECT=example-project
 CAIB_GCP_SUBSCRIPTION=caib-audit-sub
 CAIB_GCP_CREDENTIALS_FILE=./caib-gcp-credentials.json
 ```

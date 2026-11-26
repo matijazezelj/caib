@@ -1,0 +1,6 @@
+# Reviewed gitleaks findings (public-release audit, 2026-11-26). Both are false
+# positives; nothing to rotate.
+# A shell variable with the documented lab default, not a credential:
+a0dea02ec0e631f39db57ef8e227dcdd20c5c3bf:scripts/ha_failover_test.sh:curl-auth-user:100
+# Synthetic Cloudflare token_id (an identifier, not a token) in a fixture:
+9445a93d9c06497deca74dd7d1a70661fbf17354:modules/cloudflare_audit/fixtures/logs_audit_page1.json:generic-api-key:50

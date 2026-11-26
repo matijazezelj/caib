@@ -3,26 +3,27 @@
 A self-hostable cloud/SaaS audit-log SIEM on boring infrastructure:
 **Vector + PostgreSQL/TimescaleDB + Grafana**, packaged with Docker Compose.
 Each log source is a module that ships everything end-to-end: collector config,
-field mapping, migrations, a provisioned dashboard, seed detection rules, a
-dead-man rule, and test fixtures.
+field mapping, a provisioned dashboard, seed detection rules, a dead-man
+rule, and test fixtures. The database schema and migrations are shared core.
 
 Full design: [`caib-build-spec.md`](caib-build-spec.md). Deviations and
 empirical findings: [`DECISIONS.md`](DECISIONS.md).
 
 ## Quickstart (dev)
 
-Requires Docker with the Compose plugin.
+Requires Docker with the Compose plugin and [`uv`](https://docs.astral.sh/uv/)
+(`make demo` runs a Python seed script through it).
 
 ```sh
 make up        # generates .env with random passwords on first run, builds, starts
-make demo      # seed fixture data (30 days) + fire sample detections — no cloud creds
+make demo      # needs the stack from `make up`; seeds 30 days of fixture data + fires sample detections — no cloud creds
 # Grafana: http://127.0.0.1:3000 (admin / CAIB_GRAFANA_ADMIN_PASSWORD, printed
 # by the first `make up` and stored in .env)
 make logs      # follow everything
 make down      # stop
 ```
 
-Development also wants [`uv`](https://docs.astral.sh/uv/):
+For development:
 
 ```sh
 make test      # ruff + pytest (pytest starts a throwaway timescaledb container)
@@ -33,7 +34,7 @@ Postgres, Grafana and the optional agent API bind to `127.0.0.1`
 real host — reverse proxy, TLS, what to monitor — is
 [docs/DEPLOY.md](docs/DEPLOY.md).
 
-`make demo` gets a cold clone to populated dashboards (Overview, per-module,
+`make up && make demo` gets a cold clone to populated dashboards (Overview, per-module,
 Alerts) and real firing alerts in under two minutes.
 
 ## What it looks like
@@ -115,7 +116,7 @@ reason to pick it — or to pick something else.
 |---|---|---|---|
 | Runs on | any Docker host — laptop, VPS, on-prem | an AWS account (deploys into it, serverless) | vendor cloud |
 | Storage | one PostgreSQL + TimescaleDB | Iceberg on S3, queried via Athena/Trino/Snowflake | vendor-managed |
-| Scale | single node — 1.3B events/day of measured ingest headroom, 90-day hot window | petabyte | petabyte |
+| Scale | single node — ~1.3B events/day of ingest headroom, extrapolated from the bench, 90-day hot window | petabyte | petabyte |
 | Cost model | your hardware | object storage + per-query scan | per-GB/TB ingested |
 | Substring search | trgm-indexed, ~0.14 s over 30 days | per-query lake scan | vendor-indexed |
 | Sources | 4 shipped, cloud/SaaS audit only | 50+, all security telemetry | many, all security telemetry |
@@ -145,7 +146,7 @@ Enable a module by starting compose with its profile, e.g.
 
 | Module | Type | Status |
 |---|---|---|
-| `aws_cloudtrail` | push (S3 → SQS → Vector) | ready: ingest + 7 rules + dashboard |
+| `aws_cloudtrail` | push (S3 → SQS → Vector) | ready: ingest + 7 rules + dashboard; live S3/SQS verification pending |
 | `gcp_audit` | push (Pub/Sub → Vector) | ready: ingest + 5 rules + dashboard; live Pub/Sub verification pending |
 | `azure_activity` | poller (ARM REST) | ready: ingest + 5 rules + dashboard; live verification pending |
 | `cloudflare_audit` | poller | ready: ingest + 5 rules + dashboard; live API verification pending a token |
@@ -201,15 +202,16 @@ follow the primary automatically — they're catalog state, not node state.
 Not asserted — measured. `make bench` replays 1M representative events
 (CloudTrail/GCP/Slack-shaped, spread over 30 days) through the real
 landing → loader path on a throwaway TimescaleDB and commits the results to
-[`bench/results/`](bench/results/). From the committed run on an M-series
-laptop (`0.1.0-2026-08-24`):
+[`bench/results/`](bench/results/). From the committed run on a laptop
+(`0.1.0-2026-08-24`), taken on `timescale/timescaledb:2.29.2-pg18` (the image
+recorded in the results JSON; newer pins have not been re-benched):
 
 | Measurement | Result |
 |---|---|
 | Raw vendor JSON | 1.03 GB (1M events) |
 | Loader throughput (landing → events, dedup + search_text) | **14,700 events/s** |
 | Hot size (heap + indexes, rowstore) | 2.0 GB — 0.47 GB of that is the trgm search index |
-| After columnar compression | **0.22 GB** — 9.3x vs the full hot footprint, ~6x pure data compression (heap 1.28 GB → 0.22 GB); the difference is the ~0.5 GB of b-tree/GIN indexes, which don't exist on compressed chunks |
+| After columnar compression | **0.22 GB** — 9.3x vs the full hot footprint, ~6x pure data compression (heap 1.28 GB → 0.22 GB); the difference is the ~0.7 GB of b-tree/GIN indexes (0.47 GB trgm + 0.24 GB others), which don't exist on compressed chunks |
 | Dedup re-insert against **compressed** chunks | 19,300 events/s, zero new rows |
 | `module+time` filter (3d) hot → compressed | 5 ms → 2 ms |
 | `search_text ILIKE` over 30 days | 0.14 s hot (trgm) / 0.21 s compressed scan |
@@ -219,8 +221,8 @@ The analyst-search index is the biggest measured tradeoff: before migration
 the git history of the results file). The GIN/trgm index costs roughly half
 the ingest throughput and ~0.5 GB of hot storage, and buys sub-second
 substring search — the right trade for a SIEM, and now a measured one. For
-perspective, 14,700 events/s is ~1.3 **billion** events/day of ingest
-headroom; cloud/SaaS audit volumes top out orders of magnitude below that.
+perspective, 14,700 events/s extrapolates to ~1.3 **billion** events/day of
+ingest headroom (from one ~68 s drain, not a sustained 24 h run); cloud/SaaS audit volumes top out orders of magnitude below that.
 
 Numbers are from a single run on a shared laptop — expect ±20–30% run-to-run
 variance. Each number's source query is recorded under `provenance` in the
