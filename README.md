@@ -272,9 +272,11 @@ Tags are signed with the maintainer's SSH key, the ed25519 key listed at
 (`SHA256:6vsxJrClnEuPXkDxygc3TckxekEGb3eoCE2+KAQF/Oo`). To verify one:
 
 ```sh
-echo "matijazezelj $(curl -s https://github.com/matijazezelj.keys | grep ed25519 | head -1)" > /tmp/caib_signers
+curl -s https://github.com/matijazezelj.keys | sed 's/^/matijazezelj /' > /tmp/caib_signers
 git -c gpg.ssh.allowedSignersFile=/tmp/caib_signers tag -v v0.1.0
 ```
+
+It should report a good signature from the fingerprint above.
 
 To cut the next one:
 
@@ -282,7 +284,7 @@ To cut the next one:
 # 1. move the Unreleased section of CHANGELOG.md under a `## [x.y.z] - <date>`
 #    heading and open a fresh empty Unreleased above it
 # 2. green CI on main, plus the release confidence checklist above
-git -c gpg.format=ssh -c user.signingkey=~/.ssh/id_ed25519.pub \
+git -c gpg.format=ssh -c user.signingkey="$HOME/.ssh/id_ed25519.pub" \
   tag -s vX.Y.Z -m "caib X.Y.Z"
 git push origin vX.Y.Z
 ```
