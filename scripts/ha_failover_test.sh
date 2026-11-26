@@ -146,13 +146,16 @@ BASELINE=$(cat "$COMMITTED_FILE" 2>/dev/null || echo 0)
 while true; do
   NOW_LANDING=$(sql "SELECT count(*) FROM ingest.landing WHERE module = 'ha_test'" 2>/dev/null || echo "")
   NOW_EVENTS=$(sql "SELECT count(*) FROM caib.events WHERE module = 'ha_test'" 2>/dev/null || echo "")
-  if [ -n "$NOW_LANDING" ]; then break; fi
+  # DB clock on the new primary: anything stamped after this was written
+  # post-failover. Read inside the retry loop: right after promotion HAProxy
+  # can still flap, and one good query does not guarantee the next (an
+  # unguarded read here killed a run under set -e).
+  T_PROMO_DB=$(sql "SELECT now()" 2>/dev/null || echo "")
+  if [ -n "$NOW_LANDING" ] && [ -n "$T_PROMO_DB" ]; then break; fi
   [ "$(date +%s)" -gt "$RESUME_DEADLINE" ] && { echo "FAIL: writes did not resume in 60s"; exit 1; }
   sleep 0.5
 done
 RESUME_S=$(elapsed "$T0_RT" "$EPOCHREALTIME")
-# DB clock on the new primary: anything stamped after this was written post-failover.
-T_PROMO_DB=$(sql "SELECT now()")
 echo "   writes resumed through haproxy ${RESUME_S}s after stop (new-primary clock: $T_PROMO_DB)"
 
 echo "== post-failover: landing NEW key B ($PROBE_N_B events)"
