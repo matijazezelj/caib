@@ -108,6 +108,48 @@ def test_unset_leaves_a_hand_tuned_policy_alone(migrated_db: str, monkeypatch) -
     assert days(migrated_db)["caib.events"] == 200.0
 
 
+def test_unset_does_not_auto_raise_caggs(migrated_db: str, monkeypatch) -> None:
+    """Both knobs unset: caggs stay at 400 even when raw was hand-raised past
+    them — nothing in .env means migrate changes nothing."""
+    with psycopg.connect(migrated_db, autocommit=True) as conn:
+        conn.execute("SELECT remove_retention_policy('caib.events')")
+        conn.execute("SELECT add_retention_policy('caib.events', drop_after => INTERVAL '730 days')")
+    before = policies(migrated_db)
+    remigrate(migrated_db, monkeypatch)
+    assert policies(migrated_db) == before
+    assert days(migrated_db)["caib.events_5m"] == 400.0
+
+
+@pytest.mark.parametrize("value", ["365", "0"])
+def test_knob_takes_over_a_superuser_owned_policy(migrated_db: str, monkeypatch, value) -> None:
+    """The old docs had operators re-create policies by hand, as postgres.
+    Setting the knob afterwards must still take those policies over."""
+    with psycopg.connect(migrated_db, autocommit=True) as conn:
+        for rel, age in (("caib.events", "200 days"), ("caib.events_5m", "500 days")):
+            conn.execute("SELECT remove_retention_policy(%s::regclass)", (rel,))
+            conn.execute("SELECT add_retention_policy(%s::regclass, drop_after => %s::interval)",
+                         (rel, age))
+        # Measured, not assumed: Timescale gives the job to the hypertable's
+        # owner whoever adds it, so caib_app still owns these and the
+        # SET LOCAL ROLE caib_app in sync_retention can alter/remove them.
+        assert {r[0] for r in conn.execute(
+            "SELECT owner::text FROM timescaledb_information.jobs"
+            " WHERE proc_name = 'policy_retention'"
+        )} == {"caib_app"}
+    remigrate(migrated_db, monkeypatch,
+              CAIB_EVENTS_RETENTION_DAYS=value, CAIB_CAGG_RETENTION_DAYS=value)
+    expected = None if value == "0" else float(value)
+    assert days(migrated_db) == dict.fromkeys(RELS, expected)
+
+
+def test_bad_value_fails_before_any_migration(pg_db_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("CAIB_EVENTS_RETENTION_DAYS", "3")
+    with pytest.raises(RetentionConfigError, match="at least 7 days"):
+        migrate.run(pg_db_url, MIGRATIONS_DIR)
+    with psycopg.connect(pg_db_url) as conn:
+        assert conn.execute("SELECT to_regclass('caib.schema_migrations')").fetchone()[0] is None
+
+
 def test_changed_value_takes_effect_on_existing_db(migrated_db: str, monkeypatch) -> None:
     """Under the default 90 days a 60-day-old chunk survives the policy; after
     lowering to 30 on the same database, the same job drops it."""

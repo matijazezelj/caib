@@ -296,6 +296,7 @@ def run(super_url: str, migrations_dir: pathlib.Path, wait_s: float = 0) -> int:
             else psycopg.connect(super_url, autocommit=True)
         )
 
+    events_retention.validate_env()
     with connect() as conn:
         update_extension(conn)
     with connect() as conn:

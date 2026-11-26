@@ -15,9 +15,10 @@ with `remove_retention_policy`/`add_retention_policy` must not have it silently
 cut back to 90 days — and dropped — by the next `make up`. Fresh databases get
 the migrations' 90/400 days, so the defaults are unchanged.
 
-The one change made without being asked: when raw events would outlive the
-caggs (say events at 3 years, caggs still at 400 days), the caggs are raised to
-match. Dashboards read the caggs for anything wider than ~7 days, so a cagg
+The one change made beyond what was asked: when CAIB_EVENTS_RETENTION_DAYS is
+set so that raw events would outlive the caggs (say events at 3 years, caggs
+still at 400 days) and CAIB_CAGG_RETENTION_DAYS is unset, the caggs are raised
+to match. Dashboards read the caggs for anything wider than ~7 days, so a cagg
 shorter than raw shows an empty panel over data that is still on disk. Raising
 retention never deletes anything. An *explicit* CAIB_CAGG_RETENTION_DAYS
 shorter than raw is refused instead.
@@ -72,6 +73,24 @@ def parse_days(name: str, environ: Mapping[str, str]) -> int | None:
             f"{name}={days}: must be between 0 (never drop) and {MAX_DAYS} days"
         )
     return days
+
+
+def validate_env(environ: Mapping[str, str] | None = None) -> None:
+    """The checks that need no database. migrate calls this before applying
+    any migration, so a typo fails the run with nothing changed."""
+    env = os.environ if environ is None else environ
+    events_days = parse_days(EVENTS_VAR, env)
+    parse_days(CAGG_VAR, env)
+    _check_events_floor(events_days)
+
+
+def _check_events_floor(events_days: int | None) -> None:
+    if events_days is not None and 0 < events_days < MIN_EVENTS_DAYS:
+        raise RetentionConfigError(
+            f"{EVENTS_VAR}={events_days}: raw events must be kept at least "
+            f"{MIN_EVENTS_DAYS} days (compression, the dashboards' raw panels and "
+            "detection all read the last 7 days); use 0 to never drop"
+        )
 
 
 def _span(days: int) -> float:
@@ -169,12 +188,7 @@ def sync_retention(
             log.warning("%s does not exist; retention settings not applied", EVENTS)
         return {}
 
-    if events_days is not None and 0 < events_days < MIN_EVENTS_DAYS:
-        raise RetentionConfigError(
-            f"{EVENTS_VAR}={events_days}: raw events must be kept at least "
-            f"{MIN_EVENTS_DAYS} days (compression, the dashboards' raw panels and "
-            "detection all read the last 7 days); use 0 to never drop"
-        )
+    _check_events_floor(events_days)
     events_span = (
         _span(events_days) if events_days is not None else _current_span(conn, EVENTS)
     )
@@ -191,7 +205,10 @@ def sync_retention(
                 f"{EVENTS_VAR}, or 0 (never drop)."
             )
         cagg_targets = dict.fromkeys(caggs, cagg_days)
-    else:
+    elif events_days is not None:
+        # Only when raw retention was set explicitly: with both knobs unset,
+        # migrate must not touch a database whose events policy someone
+        # raised or removed by hand.
         for cagg in caggs:
             if _current_span(conn, cagg) < events_span:
                 cagg_targets[cagg] = 0 if events_span == math.inf else int(events_span)

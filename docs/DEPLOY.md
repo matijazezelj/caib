@@ -131,7 +131,7 @@ CAIB_EVENTS_RETENTION_DAYS=2555   # raw events: 7 years. 0 = never drop
 | Variable | Unset | Accepted values |
 |---|---|---|
 | `CAIB_EVENTS_RETENTION_DAYS` | leave the database's policy as it is (90 days on a fresh install) | `0` (never drop) or `7`–`36500` |
-| `CAIB_CAGG_RETENTION_DAYS` | leave as is (400 days), but raise it to match raw events if raw would outlive it | `0` or `1`–`36500`, and not shorter than raw events |
+| `CAIB_CAGG_RETENTION_DAYS` | leave as is (400 days), except: raised to match `CAIB_EVENTS_RETENTION_DAYS` when that is set longer | `0` or `1`–`36500`, and not shorter than raw events |
 
 How it behaves:
 
@@ -141,7 +141,8 @@ How it behaves:
 - The same value on every run changes nothing. A new value alters the existing
   Timescale job in place (`alter_job`: same job id and history); `0` removes the
   policy; going from `0` back to a number adds one.
-- Nonsense is refused, and migrate exits non-zero **before changing anything**:
+- Nonsense is refused: migrate exits non-zero **before applying any
+  migration or changing any policy**:
   non-integers, negatives, more than 100 years, raw retention under 7 days
   (the uncompressed hot tier that compression, detection and the raw dashboard
   panels read), and aggregates kept shorter than raw events — dashboards read
@@ -160,8 +161,8 @@ raw vendor JSON kept, i.e. `CAIB_DROP_RAW=false`; single run, expect ±20–30%,
 and your event shape will differ):
 
 - **Hot (first 7 days, uncompressed): ~2.0 GB per 1M events.** That is the
-  1.28 GB heap plus ~0.5 GB of b-tree/GIN indexes (0.47 GB of it the trgm
-  search index).
+  1.28 GB heap plus 0.71 GB of indexes — 0.47 GB of it the trgm search index,
+  ~0.24 GB the b-tree/BRIN ones.
 - **Compressed (day 8 onward): ~0.22 GB per 1M events.** That is ~6x pure data
   compression on the heap (1.28 GB → 0.22 GB); the often-quoted 9.3x compares
   it with the whole hot footprint, indexes included — compressed chunks carry
