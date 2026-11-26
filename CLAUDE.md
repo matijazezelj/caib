@@ -44,7 +44,7 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
 5. ~~Agent query layer~~ — done (`docs/AGENT_API.md`).
 6. ~~Reliability/ops backlog~~ — done.
 7. ~~Supply chain / CI~~ — done. Tags are signed with the SSH key (README
-   "Releases"); v0.1.0 (pre-release) cut 2026-11-26. The
+   "Releases"); v0.1.0 and v0.2.0 (pre-releases) cut 2026-11-26. The
    repo is public (since November 2026); GitHub secret scanning + push
    protection, Dependabot alerts, CodeQL and private vulnerability reporting
    are on. `main` has no ruleset yet (offered 2026-11-26, not chosen).

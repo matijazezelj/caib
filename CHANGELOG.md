@@ -9,6 +9,21 @@ is the index, not the record.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-11-26
+
+Second pre-release. It adds three SaaS modules, which brings CAIB to seven
+sources. It tests HA failover under a hard kill and a network partition, and
+makes the agent API usable from clients that only offer read-only tools (HIB).
+
+**Verification status.** This is unchanged from 0.1.0 in kind: everything is
+tested against fixtures, in CI and in the local release checks (`make demo` with
+all seven modules, `make restore-test`, `make ha-failover-test`; the chaos
+modes were run 4× each on fresh clusters). **No module has been verified
+against a real account.** The three new modules are built from vendor
+documentation, and their fixtures are SYNTHETIC.
+
 ### v0.2 P1: three new modules, HA chaos tests
 
 - `github_audit` module: GitHub organization audit log poller (GitHub

@@ -1,6 +1,6 @@
 [project]
 name = "caib-agentapi"
-version = "0.1.0"
+version = "0.2.0"
 description = "CAIB agent query layer: read-only HTTP/JSON API and MCP server over caib_core.query"
 requires-python = ">=3.12"
 license = "Apache-2.0"
