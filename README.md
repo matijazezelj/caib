@@ -272,8 +272,9 @@ Tags are signed with the maintainer's SSH key, the ed25519 key listed at
 (`SHA256:6vsxJrClnEuPXkDxygc3TckxekEGb3eoCE2+KAQF/Oo`). To verify one:
 
 ```sh
-echo "matijazezelj $(curl -s https://github.com/matijazezelj.keys | grep ed25519 | head -1)" > /tmp/caib_signers
+curl -s https://github.com/matijazezelj.keys | sed 's/^/matijazezelj /' > /tmp/caib_signers
 git -c gpg.ssh.allowedSignersFile=/tmp/caib_signers tag -v v0.1.0
+# expect: Good "git" signature for matijazezelj with ED25519 key SHA256:6vsxJrClnEuPXkDxygc3TckxekEGb3eoCE2+KAQF/Oo
 ```
 
 To cut the next one:
