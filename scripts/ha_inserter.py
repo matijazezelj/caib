@@ -36,11 +36,17 @@ def main() -> None:
     committed = 0
     seq = 0
     conn = None
+    ts_seq, ts = -1, ""
     while not stop:
         try:
             if conn is None or conn.closed:
                 conn = psycopg.connect(args.url, connect_timeout=3)
-            ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            # Fixed per seq: a retry after an ambiguous COMMIT must reuse the
+            # same event_time, or the loader's (event_time, dedup_hash) key
+            # sees a new event and the count gains a duplicate.
+            if ts_seq != seq:
+                ts_seq = seq
+                ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             payload = {
                 "event_time": ts,
                 "event_id": f"ha-{seq}",

@@ -23,7 +23,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "core"))
 from caib_core import loader, migrate
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TSDB_IMAGE = "timescale/timescaledb:2.30.0-pg18"
+TSDB_IMAGE = "timescale/timescaledb:2.32.1-pg18"
 UTC = datetime.UTC
 
 N_EVENTS = 1_000_000

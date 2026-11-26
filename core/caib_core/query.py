@@ -9,8 +9,10 @@ Every guardrail lives here rather than in a transport, for the same reason:
 
   * a hard per-function LIMIT cap, applied to whatever the caller asked for;
   * `since`/`until` coerced to aware UTC datetimes;
-  * a maximum lookback (90 days, matching the `caib.events` retention policy —
-    older raw events do not exist, so a bigger window only costs chunk scans);
+  * a maximum lookback on event queries equal to the live `caib.events`
+    retention policy (90 days unless CAIB_EVENTS_RETENTION_DAYS says otherwise;
+    none when there is no policy) — older raw events do not exist, so a bigger
+    window only costs chunk scans. Read per request, see retention_lookback();
   * no caller string is ever interpolated into SQL text. Every value goes
     through a psycopg named parameter. The only things composed into a query
     string are fragments from module-level constants in this file, which is why
@@ -35,10 +37,32 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
-# Matches add_retention_policy('caib.events', drop_after => INTERVAL '90 days')
-# in migration 0002. Asking for more than this cannot return more data; it only
-# buys a scan across every chunk that still exists.
-MAX_LOOKBACK = datetime.timedelta(days=90)
+# The event-query lookback ceiling is the caib.events retention policy as it is
+# in the database right now: 90 days from migration 0002 unless the operator
+# changed it (CAIB_EVENTS_RETENTION_DAYS, caib_core.events_retention). Asking
+# for more than that cannot return more data; it only buys a scan across every
+# chunk that still exists. No policy (retention 0, never drop) means no
+# ceiling: every stored event is reachable, and what bounds a huge scan is the
+# role's statement_timeout (15s, caib_core.migrate.AGENT_ROLE_SETTINGS) and the
+# LIMIT caps below — there is deliberately no separate invented cap.
+#
+# Read per request rather than cached: it is one catalog row, and a cache would
+# keep clamping to the old value after a migrate changed it. caib_agent_ro reads
+# timescaledb_information.jobs through TimescaleDB's own PUBLIC grant; migration
+# 0008 grants nothing for it.
+RETENTION_SQL = """
+SELECT extract(epoch FROM (config->>'drop_after')::interval)
+FROM timescaledb_information.jobs
+WHERE proc_name = 'policy_retention'
+  AND hypertable_schema = 'caib' AND hypertable_name = 'events'
+"""
+
+
+def retention_lookback(conn: psycopg.Connection) -> datetime.timedelta | None:
+    """caib.events' retention as a timedelta, or None when no policy drops it."""
+    row = conn.execute(RETENTION_SQL).fetchone()
+    return None if row is None else datetime.timedelta(seconds=float(row[0]))
+
 
 DEFAULT_EVENT_WINDOW = datetime.timedelta(hours=24)
 DEFAULT_ALERT_WINDOW = datetime.timedelta(days=7)
@@ -97,7 +121,7 @@ def _window(
     since: Any,
     until: Any,
     default_span: datetime.timedelta,
-    max_lookback: datetime.timedelta | None = MAX_LOOKBACK,
+    max_lookback: datetime.timedelta | None,
 ) -> tuple[datetime.datetime, datetime.datetime, bool]:
     """Resolve (since, until) and clamp to `max_lookback` (None: no clamp).
 
@@ -177,7 +201,7 @@ def _window_meta(
     since: datetime.datetime,
     until: datetime.datetime,
     clamped: bool,
-    max_lookback: datetime.timedelta | None = MAX_LOOKBACK,
+    max_lookback: datetime.timedelta | None,
 ) -> dict:
     return {
         "since": since.isoformat(),
@@ -210,7 +234,8 @@ def search_events(
 
     Window defaults to the last 24 hours. Cap 500 rows.
     """
-    since_dt, until_dt, clamped = _window(since, until, DEFAULT_EVENT_WINDOW)
+    lookback = retention_lookback(conn)
+    since_dt, until_dt, clamped = _window(since, until, DEFAULT_EVENT_WINDOW, lookback)
     limit = _cap(limit, SEARCH_EVENTS_CAP, 100)
 
     # Fragments are literals from this file; every caller value is a parameter.
@@ -240,7 +265,7 @@ def search_events(
         limit,
     )
     return {
-        "window": _window_meta(since_dt, until_dt, clamped),
+        "window": _window_meta(since_dt, until_dt, clamped, lookback),
         "limit": limit,
         "count": len(events),
         "truncated": truncated,
@@ -262,7 +287,7 @@ ALERT_COLUMNS = (
 # by last_seen answered that question with "nothing". An explicit `since` is
 # the caller asking about recency, so it applies to every status.
 #
-# No MAX_LOOKBACK clamp and no upper bound either: the 90-day ceiling is the
+# No lookback clamp and no upper bound either: the event ceiling is the
 # caib.events retention policy, which alerts do not follow, and last_seen is a
 # vendor event time that can sit slightly in the future.
 ALERT_DEFAULT_WINDOW_FILTER = "(status <> 'closed' OR last_seen >= %(since)s)"
@@ -402,7 +427,8 @@ def top_actors(
     caib.actors_1h continuous aggregate when `since` falls on an hour boundary
     and caib.events otherwise; the answer says which, in `source`. Cap 100.
     """
-    since_dt, until_dt, clamped = _window(since, None, DEFAULT_EVENT_WINDOW)
+    lookback = retention_lookback(conn)
+    since_dt, until_dt, clamped = _window(since, None, DEFAULT_EVENT_WINDOW, lookback)
     limit = _cap(limit, TOP_ACTORS_CAP, 20)
 
     aligned = (since_dt.minute, since_dt.second, since_dt.microsecond) == (0, 0, 0)
@@ -417,7 +443,7 @@ def top_actors(
         conn, template.format(module_filter=module_filter), params, limit
     )
     return {
-        "window": _window_meta(since_dt, until_dt, clamped),
+        "window": _window_meta(since_dt, until_dt, clamped, lookback),
         "source": "caib.actors_1h" if aligned else "caib.events",
         "limit": limit,
         "count": len(actors),
@@ -457,7 +483,8 @@ def actor_activity(
     """
     if not actor:
         raise QueryError("actor: required")
-    since_dt, until_dt, clamped = _window(since, until, DEFAULT_EVENT_WINDOW)
+    lookback = retention_lookback(conn)
+    since_dt, until_dt, clamped = _window(since, until, DEFAULT_EVENT_WINDOW, lookback)
     limit = _cap(limit, ACTOR_ACTIVITY_CAP, 200)
     params = {
         "actor": actor,
@@ -478,7 +505,7 @@ def actor_activity(
     by_action = _fetch(conn, ACTOR_ROLLUP_SQL, params)
     return {
         "actor": actor,
-        "window": _window_meta(since_dt, until_dt, clamped),
+        "window": _window_meta(since_dt, until_dt, clamped, lookback),
         "limit": limit,
         "count": len(events),
         "truncated": truncated,
@@ -498,7 +525,7 @@ def actor_activity(
 #     falls back to the cagg bucket otherwise, exactly as the panel does, so a
 #     module that has gone quiet shows a growing lag instead of vanishing.
 #
-# Every branch is time-bounded; nothing here walks the full 90 days.
+# Every branch is time-bounded; nothing here walks the whole retention window.
 MODULE_HEALTH_SQL = """
 WITH seen AS (
   SELECT module, max(bucket) AS newest

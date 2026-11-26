@@ -55,6 +55,12 @@ counts the aggregate does, derived from `caib.events`, which is already
 readable — no additional data is exposed, but it is why
 `information_schema.table_privileges` lists more than five rows for the role.
 
+The role also reads `timescaledb_information.jobs`, which is how the query core
+learns the live `caib.events` retention (below). Nothing in migration 0008 grants
+that: TimescaleDB grants its information views to `PUBLIC`, so every role on the
+database could already read the job list (policy configs and schedules, no event
+data).
+
 There is also no write path of any kind. v1 has no tool or endpoint to
 acknowledge, close, silence or create an alert. That is deliberate: the alert
 lifecycle has not survived contact with a real dogfooding round yet, and a
@@ -75,8 +81,16 @@ And three enforced in `caib_core.query`, so both transports get them:
 - a hard `LIMIT` cap per function, applied regardless of what the caller asks
   for (`search_events` 500, `get_alerts` 500, `actor_activity` 500,
   `top_actors` 100);
-- a 90-day maximum lookback on event queries, matching the `caib.events`
-  retention policy (alerts are not clamped: they do not follow it);
+- a maximum lookback on event queries equal to the live `caib.events`
+  retention policy (90 days by default, or whatever `CAIB_EVENTS_RETENTION_DAYS`
+  set — see [DEPLOY.md](DEPLOY.md#6-retention)), read from
+  `timescaledb_information.jobs` on every request, so a change applied by
+  `migrate` takes effect without restarting the agent API. With no policy
+  (`CAIB_EVENTS_RETENTION_DAYS=0`) there is no ceiling: every stored event is
+  reachable, and the role's 15s `statement_timeout` plus the LIMIT caps are what
+  bound a very wide query. Responses report the ceiling as
+  `window.max_lookback_days` (`null` = none). Alerts are not clamped: they do
+  not follow that policy;
 - `raw` — the full original vendor event — excluded from `search_events` unless
   explicitly requested, and never returned by `actor_activity` at all.
 
@@ -306,7 +320,7 @@ your own alerts before settling (see the last item).
   days (`window.applies_to: "closed alerts only"`). Retention never deletes an
   unresolved alert, so neither does the view — "what is open?" gets the real
   answer. An explicit `since` filters every status on `last_seen`
-  (`applies_to: "all alerts"`) and is not clamped to 90 days.
+  (`applies_to: "all alerts"`) and is not clamped to the event retention.
 - **Alerts are ordered and filtered on `last_seen`**, so an alert that first
   fired months ago but is still firing appears in a short window. An alert row
   folds every recurrence of the same thing, so read `event_count`,

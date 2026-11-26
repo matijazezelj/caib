@@ -12,6 +12,41 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Image batch: TimescaleDB 2.32.1, Vector 0.62
+
+- Images: `timescale/timescaledb` 2.32.1-pg18 (compose, backup, CI, tests, bench),
+  HA `timescale/timescaledb-ha:pg18.7-ts2.32.1`, `timberio/vector` 0.62.0,
+  `grafana/grafana` 13.3.1, `coreos/etcd` v3.7.4, `uv` 0.13.10 — one PR replacing
+  dependabot #63 #66 #67 #68 #69. Existing volumes: `migrate` updates the
+  extension; restart loader/detect afterwards (docs/DEPLOY.md §8).
+- Fix: the Vector services now set `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION`;
+  since Vector 0.57 their `${CAIB_PG_URL}` endpoint (and GCP/SQS settings) had
+  been passed through as literal strings.
+
+### HA failover: detection continuity
+
+- `make ha-failover-test` now asserts detection keeps working across a
+  failover: an alert before the kill, a new alert within 240s after
+  promotion, exact alert event_count vs events (nothing lost or
+  double-counted), one notification per alert, and loader/detect heartbeats
+  advancing on the new primary. Measured: first post-failover alert ~130s
+  after the primary stop.
+- `ha_inserter.py`: event_time fixed per sequence number across retries, so
+  a retried ambiguous commit can't become a duplicate event.
+- A failed failover run restarts the stopped node on exit.
+
+### Configurable retention
+
+- Raw-event retention is configurable: `CAIB_EVENTS_RETENTION_DAYS` (e.g. 2555
+  for 7 years, 0 = never drop) and `CAIB_CAGG_RETENTION_DAYS`, applied by
+  `migrate` idempotently. Unset changes nothing, so the 90/400-day defaults and
+  hand-tuned policies stay. Bad values fail migrate before anything changes.
+  Disk sizing per retention period in docs/DEPLOY.md.
+- Agent API: the event lookback ceiling now follows the configured raw-event
+  retention (read live per request; none when retention is 0) instead of a fixed
+  90 days, and is reported as `window.max_lookback_days`. MCP instructions and
+  docs/AGENT_API.md updated.
+
 ### Public-release polish (#76)
 
 - Rules: five Sigma IDs cited in rule comments matched nothing upstream. None of the

@@ -11,7 +11,7 @@ import datetime
 
 import psycopg
 import pytest
-from caib_core import query
+from caib_core import events_retention, query
 
 UTC = datetime.UTC
 
@@ -147,13 +147,63 @@ def test_a_nonsense_limit_is_rejected(ro):
 
 
 def test_lookback_is_clamped_to_the_retention_window(ro):
-    """Asking past the 90-day retention policy cannot return more data, and the
-    caller is told the window moved rather than left to assume it did not."""
+    """Asking past the default 90-day retention policy cannot return more data,
+    and the caller is told the window moved rather than left to assume it did
+    not."""
     now = datetime.datetime.now(UTC)
     result = query.search_events(ro, since=now - datetime.timedelta(days=400))
     assert result["window"]["clamped_to_max_lookback"] is True
+    assert result["window"]["max_lookback_days"] == 90
     floor = datetime.datetime.fromisoformat(result["window"]["since"])
-    assert abs((now - floor) - query.MAX_LOOKBACK) < datetime.timedelta(minutes=1)
+    assert abs((now - floor) - datetime.timedelta(days=90)) < datetime.timedelta(minutes=1)
+
+
+def _set_events_retention(url: str, days: str) -> None:
+    """Change the policy the way an operator does: CAIB_EVENTS_RETENTION_DAYS
+    through migrate's sync step, as superuser."""
+    with psycopg.connect(url, autocommit=True) as conn:
+        events_retention.sync_retention(
+            conn, {"CAIB_EVENTS_RETENTION_DAYS": days, "CAIB_CAGG_RETENTION_DAYS": "0"})
+
+
+def test_lookback_follows_a_longer_configured_retention(seeded_db, ro):
+    """365-day retention: a 200-day window is answered as asked, and every
+    event tool reports the new ceiling. Read per request — the same open
+    connection sees the change, no restart."""
+    assert query.search_events(ro)["window"]["max_lookback_days"] == 90
+    _set_events_retention(seeded_db, "365")
+    now = datetime.datetime.now(UTC)
+    since = now - datetime.timedelta(days=200)
+    for result in (
+        query.search_events(ro, since=since),
+        query.actor_activity(ro, "alice@example.com", since=since),
+        query.top_actors(ro, since=since),
+    ):
+        assert result["window"]["clamped_to_max_lookback"] is False
+        assert result["window"]["max_lookback_days"] == 365
+        assert datetime.datetime.fromisoformat(result["window"]["since"]) == since
+    # Past the new ceiling it still clamps, to 365 rather than 90.
+    clamped = query.search_events(ro, since=now - datetime.timedelta(days=1000))
+    assert clamped["window"]["clamped_to_max_lookback"] is True
+    floor = datetime.datetime.fromisoformat(clamped["window"]["since"])
+    assert abs((now - floor) - datetime.timedelta(days=365)) < datetime.timedelta(minutes=1)
+
+
+def test_no_retention_policy_means_no_lookback_ceiling(seeded_db, ro):
+    _set_events_retention(seeded_db, "0")
+    assert query.retention_lookback(ro) is None
+    since = datetime.datetime.now(UTC) - datetime.timedelta(days=3650)
+    result = query.search_events(ro, since=since)
+    assert result["window"]["clamped_to_max_lookback"] is False
+    assert result["window"]["max_lookback_days"] is None
+    assert datetime.datetime.fromisoformat(result["window"]["since"]) == since
+    assert result["count"] == 8
+
+
+def test_agent_role_reads_the_policy_without_a_new_grant(ro):
+    """The ceiling comes from timescaledb_information.jobs via TimescaleDB's
+    PUBLIC grant; migration 0008's grant list is unchanged (EXPECTED_READABLE)."""
+    assert query.retention_lookback(ro) == datetime.timedelta(days=90)
 
 
 def test_timestamps_parse_from_iso_strings_and_naive_datetimes(ro):

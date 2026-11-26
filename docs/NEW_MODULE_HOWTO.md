@@ -124,7 +124,10 @@ VRL gotchas that cost us real debugging time (all Vector 0.57.0):
 
 Compose: each push module gets its own Vector service
 (`vector-<m>`) behind its profile, sharing `vector/vector.yaml` (the postgres
-sink) plus its module file, with its own disk-buffer volume.
+sink) plus its module file, with its own disk-buffer volume. Copy
+`VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"` into its
+`environment:`: since Vector 0.57 `${CAIB_*}` in the config stays a literal
+string without it (`tests/test_compose_env.py` checks every Vector service).
 
 Tests to copy from `tests/test_vector_gcp.py` / `test_vector_cloudtrail.py`:
 
