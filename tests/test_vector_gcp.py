@@ -12,7 +12,7 @@ import yaml
 from caib_core import loader
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-VECTOR_IMAGE = "timberio/vector:0.58.0-debian"
+VECTOR_IMAGE = "timberio/vector:0.62.0-debian"
 FIXTURE = ROOT / "modules" / "gcp_audit" / "fixtures" / "log_entries.json"
 MODULE_YAML = ROOT / "vector" / "modules" / "gcp_audit.yaml"
 
@@ -26,6 +26,9 @@ def test_gcp_config_validates(tmp_path):
         [
             "docker", "run", "--rm",
             "-v", f"{tmp_path}:/cfg:ro",
+            # As compose sets it (test_compose_env pins that): without it the
+            # endpoint stays the literal "${CAIB_PG_URL}", which 0.62 rejects.
+            "-e", "VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true",
             "-e", "CAIB_PG_URL=postgresql://u:p@localhost:5432/x",
             "-e", "CAIB_GCP_PROJECT=acme-prod",
             "-e", "CAIB_GCP_SUBSCRIPTION=caib-audit",

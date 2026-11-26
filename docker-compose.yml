@@ -2,7 +2,7 @@ name: caib
 
 services:
   timescaledb:
-    image: timescale/timescaledb:2.30.0-pg18
+    image: timescale/timescaledb:2.32.1-pg18
     command:
       - postgres
       - -c
@@ -145,7 +145,7 @@ services:
     restart: unless-stopped
 
   vector-aws-cloudtrail:
-    image: timberio/vector:0.58.0-debian
+    image: timberio/vector:0.62.0-debian
     profiles: ["aws_cloudtrail"]
     command:
       - --config
@@ -153,6 +153,9 @@ services:
       - --config
       - /etc/vector/modules/aws_cloudtrail.yaml
     environment:
+      # vector/*.yaml read ${CAIB_*} from here. Vector >= 0.57 leaves ${VAR}
+      # literal unless this is set; >= 0.62 substitutes into string values only.
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"
       CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_CLOUDTRAIL_SQS_URL: ${CAIB_CLOUDTRAIL_SQS_URL:-}
       CAIB_AWS_REGION: ${CAIB_AWS_REGION:-us-east-1}
@@ -168,7 +171,7 @@ services:
     restart: unless-stopped
 
   vector-gcp-audit:
-    image: timberio/vector:0.58.0-debian
+    image: timberio/vector:0.62.0-debian
     profiles: ["gcp_audit"]
     command:
       - --config
@@ -176,6 +179,9 @@ services:
       - --config
       - /etc/vector/modules/gcp_audit.yaml
     environment:
+      # vector/*.yaml read ${CAIB_*} from here. Vector >= 0.57 leaves ${VAR}
+      # literal unless this is set; >= 0.62 substitutes into string values only.
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"
       CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
       CAIB_GCP_PROJECT: ${CAIB_GCP_PROJECT:-}
       CAIB_GCP_SUBSCRIPTION: ${CAIB_GCP_SUBSCRIPTION:-}
@@ -232,7 +238,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.2.2
+    image: grafana/grafana:13.3.1
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${CAIB_GRAFANA_ADMIN_PASSWORD:?set in .env}
       CAIB_PG_RO_PASSWORD: ${CAIB_PG_RO_PASSWORD:?set in .env}
