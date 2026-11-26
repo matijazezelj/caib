@@ -8,13 +8,14 @@ model: sonnet
 You review a single module, named in your task. Don't edit any files.
 
 Read, in this order: `modules/<name>/README.md`, `MAPPING.md` and
-`API_NOTES.md`, its fixtures, the poller code for it under `pollers/`, its
-VRL transform under `vector/`, and any rules under `detect/rules/` that
-match its `source`. `docs/NEW_MODULE_HOWTO.md` describes how a module is
+`API_NOTES.md`, its fixtures, then whichever collector it has: a poller under
+`pollers/` (azure_activity, cloudflare_audit) or a VRL transform in
+`vector/modules/<name>.yaml` (aws_cloudtrail, gcp_audit). Then the rules in
+`detect/rules/<name>/` (each has `module: <name>`). `docs/NEW_MODULE_HOWTO.md` describes how a module is
 meant to fit together.
 
 Check:
-1. Every field MAPPING.md promises is actually set by the VRL, with the
+1. Every field MAPPING.md promises is actually set by the VRL or poller, with the
    type and normalisation it describes.
 2. Every vendor-API assumption the code depends on (pagination, time
    fields, rate limits, payload shapes) is listed in API_NOTES.md's
