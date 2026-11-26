@@ -12,6 +12,14 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Python dependency batch (November)
+
+- One lock update replacing dependabot #42 #43 #70 #77 #78 #79 #80: psycopg
+  3.3.9 (floor raised in core, pollers and agentapi), psycopg-pool 3.3.3,
+  FastAPI 0.165.0, pytest 9.2.0, ruff 0.17.6, PyYAML 6.0.4, boto3 1.44.12, and
+  the security updates PyJWT 2.15.1, urllib3 2.8.0, certifi 2026.11.20,
+  opentelemetry-api 1.45.2.
+
 ### Image batch: TimescaleDB 2.32.1, Vector 0.62
 
 - Images: `timescale/timescaledb` 2.32.1-pg18 (compose, backup, CI, tests, bench),
