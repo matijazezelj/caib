@@ -28,6 +28,7 @@ import psycopg_pool
 from caib_core import query
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from caib_agentapi.config import Settings, make_pool
@@ -81,6 +82,18 @@ Severity = Annotated[
     Field(description="Exactly one of: info, low, medium, high, critical. "
                       "Anything else is rejected rather than silently matching nothing."),
 ]
+
+
+# Every tool is a read through caib_agent_ro, so every tool says so. Clients
+# that only offer read-only tools to their model (HIB does, by readOnlyHint)
+# otherwise drop all seven. The hint is advisory for the client; the database
+# role is what actually enforces it.
+READ_ONLY = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
 
 
 def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
@@ -237,6 +250,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         search_events,
         name="search_events",
+        annotations=READ_ONLY,
         description=(
             "Search normalised cloud/SaaS audit events. This is the general-purpose "
             "starting point: free-text q plus exact filters on module, actor, action, "
@@ -249,6 +263,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         get_alerts,
         name="get_alerts",
+        annotations=READ_ONLY,
         description=(
             "List alerts the detection rules have raised, most recently seen first. An "
             "alert folds every recurrence of the same thing into one row, so read "
@@ -264,6 +279,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         alert_summary,
         name="alert_summary",
+        annotations=READ_ONLY,
         description=(
             "Counts of alerts over a window, broken down by status and by severity. Ask "
             "this first when the question is 'how bad is it right now' — it is one cheap "
@@ -274,6 +290,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         top_actors,
         name="top_actors",
+        annotations=READ_ONLY,
         description=(
             "Busiest actors in a window with their failure counts — who is doing the "
             "most, and who is failing the most. Good for spotting a service account "
@@ -287,6 +304,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         actor_activity,
         name="actor_activity",
+        annotations=READ_ONLY,
         description=(
             "One actor's timeline: their events newest-first plus a per-action rollup "
             "over the whole window. Use this after top_actors, get_alerts or "
@@ -298,6 +316,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         module_health,
         name="module_health",
+        annotations=READ_ONLY,
         description=(
             "Is the data any good right now? Per source module: how long since its last "
             "event, and how many events arrived in the last hour and day. Plus a "
@@ -310,6 +329,7 @@ def create_server(pool: psycopg_pool.ConnectionPool) -> MCPServer:
     server.add_tool(
         list_rules,
         name="list_rules",
+        annotations=READ_ONLY,
         description=(
             "The detection rules currently loaded, with id, module, title, severity and "
             "whether each is enabled. Use it to map a rule_id on an alert back to what "
