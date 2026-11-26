@@ -1,6 +1,7 @@
 """Phase 8: Sigma->SQL converter (existence shape) and Slack Block Kit
 notification formatting."""
 
+import datetime
 import json
 
 import psycopg
@@ -180,3 +181,77 @@ def test_drain_sends_raw_payload_when_json_format(migrated_db, webhook_capture):
 
 def test_payload_roundtrip_is_json_serializable():
     json.dumps(notify.slack_message(PAYLOAD))
+
+
+def _fire_count(migrated_db, tmp_path, rule_yaml: str, module: str, events: list[dict]) -> int:
+    """Write the converted rule, land `events` for `module`, run the rule once."""
+    path = tmp_path / f"{module}_sigma.yaml"
+    path.write_text(rule_yaml)
+    rule = detect.parse_rule(path)
+    now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+    with psycopg.connect(migrated_db) as conn:
+        detect.validate_rules(conn, [rule])
+        for i, ev in enumerate(events):
+            payload = {
+                "event_time": (now - datetime.timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "event_id": f"{module}-sigma-{i}",
+                "outcome": "success",
+                "severity": "info",
+                **ev,
+            }
+            conn.execute(
+                "INSERT INTO ingest.landing (received_at, module, payload) VALUES (now(), %s, %s)",
+                (module, Jsonb(payload)),
+            )
+        conn.commit()
+        loader.run_batch(conn, 100, drop_raw=False)
+        stats = detect.evaluate_rule(conn, rule, detect.Cfg(safety_lag_s=0))
+        conn.commit()
+    return stats["rows"]
+
+
+def test_google_workspace_sigma_event_service_maps_to_application(migrated_db, tmp_path):
+    # SigmaHQ's gworkspace rules say `eventService: admin.googleapis.com`; the
+    # Reports API gives application `admin`. The map must bridge that, or a
+    # converted rule silently never fires.
+    sigma = yaml.safe_load("""
+title: Google Workspace Role Deleted (test sample)
+id: 00000000-0000-4000-8000-000000000002
+level: medium
+logsource: {product: gcp, service: google_workspace.admin}
+detection:
+  selection:
+    eventService: admin.googleapis.com
+    eventName: DELETE_ROLE
+  condition: selection
+""")
+    rule_yaml = to_yaml(convert(sigma, "google_workspace"))
+    assert "|| '.googleapis.com'" in rule_yaml
+    rows = _fire_count(migrated_db, tmp_path, rule_yaml, "google_workspace", [
+        {"actor": "admin@example.com", "action": "DELETE_ROLE",
+         "attrs": {"application": "admin"}},
+        # same event name from another application must not match
+        {"actor": "admin@example.com", "action": "DELETE_ROLE",
+         "attrs": {"application": "login"}},
+    ])
+    assert rows == 1
+
+
+def test_github_audit_sigma_action_maps(migrated_db, tmp_path):
+    sigma = yaml.safe_load("""
+title: GitHub Repo Made Public (test sample)
+id: 00000000-0000-4000-8000-000000000003
+level: high
+logsource: {product: github, service: audit}
+detection:
+  selection:
+    action: repo.access
+    visibility: public
+  condition: selection
+""")
+    rule_yaml = to_yaml(convert(sigma, "github_audit"))
+    rows = _fire_count(migrated_db, tmp_path, rule_yaml, "github_audit", [
+        {"actor": "octo-admin", "action": "repo.access", "attrs": {"visibility": "public"}},
+        {"actor": "octo-admin", "action": "repo.access", "attrs": {"visibility": "private"}},
+    ])
+    assert rows == 1

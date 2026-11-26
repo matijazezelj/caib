@@ -55,6 +55,26 @@ FIELD_MAPS: dict[str, dict[str, str]] = {
         "actor": "actor",
         "resourceType": "attrs->>'resource_type'",
     },
+    # SigmaHQ rules/application/github/audit (logsource github/audit) match on
+    # `action` only; the rest are documented attrs.
+    "github_audit": {
+        "action": "action",
+        "actor": "actor",
+        "org": "attrs->>'org'",
+        "repo": "attrs->>'repo'",
+        "visibility": "attrs->>'visibility'",
+    },
+    # SigmaHQ rules/cloud/gcp/gworkspace target the Cloud Logging export, where
+    # the service is `<application>.googleapis.com`; the Reports API gives the
+    # bare application name, so the suffix is added here rather than letting a
+    # converted rule silently never match.
+    "google_workspace": {
+        "eventName": "action",
+        "protoPayload.metadata.event.eventName": "action",
+        "eventService": "(attrs->>'application') || '.googleapis.com'",
+        "protoPayload.serviceName": "(attrs->>'application') || '.googleapis.com'",
+        "actor.email": "actor",
+    },
 }
 
 SEVERITY_MAP = {

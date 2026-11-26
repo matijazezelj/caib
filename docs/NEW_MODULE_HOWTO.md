@@ -2,8 +2,9 @@
 
 Every log source is a module that ships everything end-to-end. This is the
 complete recipe, distilled from building `aws_cloudtrail`, `gcp_audit`,
-`cloudflare_audit`, and `azure_activity` — plus ready-to-build recipes for
-`slack_audit`, `zoom`, and `knowbe4` at the end.
+`cloudflare_audit`, `azure_activity`, `github_audit`, `google_workspace` and
+`slack_audit` — plus ready-to-build recipes for `zoom` and `knowbe4` at the end
+(the `slack_audit` section records what changed from its recipe).
 
 ## Definition of done (from the spec — all of it, in one commit series)
 

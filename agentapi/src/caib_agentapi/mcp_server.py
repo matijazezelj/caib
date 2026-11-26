@@ -74,8 +74,9 @@ Until = Annotated[
 Module = Annotated[
     str | None,
     Field(description="Restrict to one source module: aws_cloudtrail, gcp_audit, "
-                      "azure_activity or cloudflare_audit. Use module_health to see "
-                      "which are actually ingesting."),
+                      "azure_activity, cloudflare_audit, github_audit, google_workspace "
+                      "or slack_audit. Use module_health to see which are actually "
+                      "ingesting."),
 ]
 Severity = Annotated[
     str | None,
