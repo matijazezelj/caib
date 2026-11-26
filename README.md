@@ -173,7 +173,8 @@ that is a requirement you actually have.
 
 ```sh
 make ha-up             # Patroni x3 + etcd + HAProxy (lab, single host)
-make ha-failover-test  # kills the primary under write load; asserts zero loss
+make ha-failover-test  # graceful stop of the primary under write load; asserts zero loss
+make ha-chaos-test     # hard kill, then network partition of the primary
 make ha-down
 ```
 
@@ -182,6 +183,52 @@ The HA overlay (`compose.ha.yml`) runs three `timescale/timescaledb-ha` nodes
 `:5000` (primary only), Grafana and the agent API use `:5001` (replicas *and*
 primary, so reads survive replica loss). Timescale's compression/retention/cagg jobs
 follow the primary automatically — they're catalog state, not node state.
+
+**What the failover tests prove.** All three modes run `scripts/ha_failover_test.sh
+<mode>` against a healthy cluster: 20 synthetic writes/s plus a detection probe
+through HAProxy, a fault on the leader, then a new leader, writes resuming through
+`:5000`, HAProxy routing only to the new leader, Grafana answering, the Timescale jobs
+on the new primary, and the old node back as a streaming replica on the new timeline.
+Detection continuity is checked the same way in every mode: an alert before the fault,
+a new alert for events landed after it, each alert's `event_count` exactly equal to
+its events in `caib.events`, and one `new` outbox row per alert.
+
+| Mode | Fault | What it adds | Measured |
+|---|---|---|---|
+| `stop` | `docker stop` (Patroni releases the leader key) | zero committed-write loss asserted | promotion 1.4–1.7s, writes resume 9.5–14.5s |
+| `kill` | `docker kill` (SIGKILL; key must expire) | promotion inside `[ttl − loop_wait − 1, ttl + loop_wait + retry_timeout]` = [19s, 50s], computed from the live Patroni config; faster means the key was released, so not a hard failure | promotion 25.5–26.6s, writes resume 29.8–31.7s; rejoin by `pg_rewind` in 4s |
+| `partition` | `docker network disconnect` (leader alive, cut off from etcd, HAProxy and replicas) | the isolated leader's last accepted write (real INSERTs over its local socket, proven to work before the fault) is earlier than the new leader taking the key; the rows it accepted while isolated are on no node after it rejoins | isolated leader refuses writes from 10.4–12.1s, new leader at 22.0–23.6s, writes resume 27.7–29.5s; rejoin by `pg_rewind` in 4–5s |
+
+Measured on an arm64 laptop: four `kill` and four `partition` runs, run back to back
+on four fresh clusters (`make ha-chaos-test`), and three `stop` runs. Earlier runs
+on reused clusters while the test was being built gave hard-failure promotion
+22.5–28.4s and an isolated-leader write window of up to 16.8s; quote those as the
+outer range. The bounds follow from Patroni's loop: a cut-off leader demotes when its
+next key refresh fails after `retry_timeout`, which takes up to `loop_wait +
+retry_timeout` (20s). The first alert for events landed after the failover came 62–120s
+after they landed in every mode: the 60s safety lag plus wherever the rule's 60s
+interval happened to fall. It is not a property of the failure mode. Detect crashes on
+the broken connection, and compose restarts it until a primary answers: once or twice
+per `stop`, and 7–8 times per hard failure.
+
+Replication is **asynchronous** (no `synchronous_mode` in `ha/patroni.yml`). A hard
+kill or partition can therefore lose commits the replicas had not received. `kill` and
+`partition` measure that loss instead of asserting zero. Every run lost 0
+acknowledged writes at 20 writes/s, which shows the lag was small, not that loss
+cannot happen. The partition runs also show the real exposure. The cut-off leader
+accepted writes for 10–17s (18–30 probe writes) until Patroni demoted it, and
+`pg_rewind` then discarded them. Here no application could reach it, because every
+client goes through HAProxy. A client that can still reach an isolated leader
+directly would get those writes acknowledged and then lose them. Patroni's
+`synchronous_mode: true` only promotes a replica that holds every acknowledged
+commit. It falls back to async when no synchronous replica is up, unless
+`synchronous_mode_strict` is set, which blocks writes instead. Neither is tested here.
+
+Negative controls showed the new checks can fail. `HA_KILL_SIGNAL=TERM` (a graceful
+stop disguised as a kill) fails the lower bound. `patronictl pause` plus a manual
+failover (the isolated leader never demotes) fails with `SPLIT BRAIN`. A partition run
+interrupted 5s after the fault restored the node from its EXIT trap and reported the
+cluster healthy.
 
 **Promoting the lab overlay to real hosts:**
 
@@ -236,7 +283,8 @@ Docker).
 ```sh
 make test               # ~200 tests: compressed-chunk dedup, detect crash-safety, real Vector runs
 make bench              # measured ingest/compression/query numbers -> bench/results/
-make ha-failover-test   # kills the primary under write load; asserts zero loss
+make ha-failover-test   # graceful primary stop under write load; asserts zero loss
+make ha-chaos-test      # hard kill + network partition; bounds, split brain, rejoin
 make restore-test       # backup -> scratch restore -> license/marker/count assertions
 ```
 
