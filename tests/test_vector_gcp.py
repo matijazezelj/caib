@@ -27,7 +27,7 @@ def test_gcp_config_validates(tmp_path):
             "docker", "run", "--rm",
             "-v", f"{tmp_path}:/cfg:ro",
             "-e", "CAIB_PG_URL=postgresql://u:p@localhost:5432/x",
-            "-e", "CAIB_GCP_PROJECT=acme-prod",
+            "-e", "CAIB_GCP_PROJECT=example-project",
             "-e", "CAIB_GCP_SUBSCRIPTION=caib-audit",
             VECTOR_IMAGE,
             "validate", "--no-environment", "/cfg/vector.yaml", "/cfg/gcp_audit.yaml",
@@ -89,7 +89,7 @@ def test_gcp_stdin_e2e(migrated_db, tmp_path):
 
         iam = by_action["SetIamPolicy"]
         assert iam[1] == "alice@example.com"
-        assert iam[2] == "projects/acme-prod"
+        assert iam[2] == "projects/example-project"
         assert iam[3] == "success"
         assert iam[5]["roles_added"] == "roles/owner"
         assert iam[5]["permission_denied"] is False
