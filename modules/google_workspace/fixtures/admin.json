@@ -1,0 +1,208 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:00:05.300Z",
+        "uniqueQualifier": "-9012345678901234510",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin--9012345678901234510\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "admin@example.com",
+        "profileId": "100000000000000000009"
+      },
+      "events": [
+        {
+          "type": "USER_SETTINGS",
+          "name": "GRANT_ADMIN_PRIVILEGE",
+          "parameters": [
+            {
+              "name": "USER_EMAIL",
+              "value": "mallory@example.com"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.5"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:02:17.040Z",
+        "uniqueQualifier": "1112345678901234511",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin-1112345678901234511\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "admin@example.com",
+        "profileId": "100000000000000000009"
+      },
+      "events": [
+        {
+          "type": "DELEGATED_ADMIN_SETTINGS",
+          "name": "ASSIGN_ROLE",
+          "parameters": [
+            {
+              "name": "ROLE_NAME",
+              "value": "_HELP_DESK_ADMIN_ROLE"
+            },
+            {
+              "name": "USER_EMAIL",
+              "value": "frank@example.com"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.5"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:05:59.999Z",
+        "uniqueQualifier": "4412345678901234512",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin-4412345678901234512\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "admin@example.com",
+        "profileId": "100000000000000000009"
+      },
+      "events": [
+        {
+          "type": "DOMAIN_SETTINGS",
+          "name": "AUTHORIZE_API_CLIENT_ACCESS",
+          "parameters": [
+            {
+              "name": "API_CLIENT_NAME",
+              "value": "109876543210987654321"
+            },
+            {
+              "name": "API_SCOPES",
+              "value": "https://mail.google.com/,https://www.googleapis.com/auth/drive"
+            },
+            {
+              "name": "DOMAIN_NAME",
+              "value": "example.com"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.5"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:09:30.500Z",
+        "uniqueQualifier": "8812345678901234513",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin-8812345678901234513\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "admin@example.com",
+        "profileId": "100000000000000000009"
+      },
+      "events": [
+        {
+          "type": "SECURITY_SETTINGS",
+          "name": "ENFORCE_STRONG_AUTHENTICATION",
+          "parameters": [
+            {
+              "name": "SETTING_NAME",
+              "value": "ENFORCE_STRONG_AUTHENTICATION"
+            },
+            {
+              "name": "OLD_VALUE",
+              "value": "true"
+            },
+            {
+              "name": "NEW_VALUE",
+              "value": "false"
+            },
+            {
+              "name": "ORG_UNIT_NAME",
+              "value": "/Sales"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.5"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:12:00.000Z",
+        "uniqueQualifier": "6612345678901234514",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin-6612345678901234514\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "admin@example.com",
+        "profileId": "100000000000000000009"
+      },
+      "events": [
+        {
+          "type": "SECURITY_SETTINGS",
+          "name": "ENFORCE_STRONG_AUTHENTICATION",
+          "parameters": [
+            {
+              "name": "SETTING_NAME",
+              "value": "ENFORCE_STRONG_AUTHENTICATION"
+            },
+            {
+              "name": "OLD_VALUE",
+              "value": "false"
+            },
+            {
+              "name": "NEW_VALUE",
+              "value": "true"
+            },
+            {
+              "name": "ORG_UNIT_NAME",
+              "value": "/Engineering"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.5"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T11:20:13.250Z",
+        "uniqueQualifier": "-312345678901234515",
+        "applicationName": "admin",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-admin--312345678901234515\"",
+      "actor": {
+        "callerType": "KEY",
+        "key": "SYSTEM"
+      },
+      "events": [
+        {
+          "type": "USER_SETTINGS",
+          "name": "CREATE_USER",
+          "parameters": [
+            {
+              "name": "USER_EMAIL",
+              "value": "grace@example.com"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

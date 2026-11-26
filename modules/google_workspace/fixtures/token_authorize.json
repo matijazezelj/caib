@@ -1,0 +1,92 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T13:00:10.000Z",
+        "uniqueQualifier": "4512345678901234530",
+        "applicationName": "token",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-token-4512345678901234530\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "alice@example.com",
+        "profileId": "100000000000000000001"
+      },
+      "events": [
+        {
+          "type": "auth",
+          "name": "authorize",
+          "parameters": [
+            {
+              "name": "app_name",
+              "value": "Calendar Helper"
+            },
+            {
+              "name": "client_id",
+              "value": "123456789012-synthetic.apps.googleusercontent.com"
+            },
+            {
+              "name": "client_type",
+              "value": "WEB"
+            },
+            {
+              "name": "scope",
+              "multiValue": [
+                "https://www.googleapis.com/auth/calendar.readonly",
+                "openid"
+              ]
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.10"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T13:04:45.500Z",
+        "uniqueQualifier": "5612345678901234531",
+        "applicationName": "token",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-token-5612345678901234531\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "carol@example.com",
+        "profileId": "100000000000000000003"
+      },
+      "events": [
+        {
+          "type": "auth",
+          "name": "authorize",
+          "parameters": [
+            {
+              "name": "app_name",
+              "value": "Mail Organizer Pro"
+            },
+            {
+              "name": "client_id",
+              "value": "987654321098-synthetic.apps.googleusercontent.com"
+            },
+            {
+              "name": "client_type",
+              "value": "WEB"
+            },
+            {
+              "name": "scope",
+              "multiValue": [
+                "https://mail.google.com/",
+                "https://www.googleapis.com/auth/userinfo.email"
+              ]
+            }
+          ]
+        }
+      ],
+      "ipAddress": "192.0.2.77"
+    }
+  ]
+}

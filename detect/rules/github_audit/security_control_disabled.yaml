@@ -1,0 +1,59 @@
+# An org- or repo-level security control was switched off: secret scanning,
+# push protection, GitHub Advanced Security, the 2FA requirement or OAuth app
+# restrictions. Derived from three SigmaHQ rules, keeping only the actions
+# that GitHub documents for organization audit logs (their business_* actions
+# belong to the enterprise log, which this module does not read):
+#   - "Github Secret Scanning Feature Disabled", id
+#     3883d9a0-fd0f-440f-afbb-445a2a799bb8, author Muhammad Faisal (@faisalusuf),
+#     https://github.com/SigmaHQ/sigma/blob/master/rules/application/github/audit/github_secret_scanning_feature_disabled.yml
+#   - "Github Push Protection Disabled", id
+#     ccd55945-badd-4bae-936b-823a735d37dd, author Muhammad Faisal (@faisalusuf),
+#     https://github.com/SigmaHQ/sigma/blob/master/rules/application/github/audit/github_push_protection_disabled.yml
+#   - "Github High Risk Configuration Disabled", id
+#     8622c92d-c00e-463c-b09d-fd06166f6794, author Muhammad Faisal (@faisalusuf),
+#     https://github.com/SigmaHQ/sigma/blob/master/rules/application/github/audit/github_disable_high_risk_configuration.yml
+# All three under the Detection Rule License 1.1
+# (https://github.com/SigmaHQ/Detection-Rule-License).
+# CAIB additions (not in those rules): repository-level push protection
+# disable, SAML SSO disabled, IP allow list disabled.
+id: github_audit.security_control_disabled
+enabled: true
+module: github_audit
+title: "GitHub security control disabled (secret scanning, push protection, 2FA, GHAS)"
+severity: high
+interval: 300
+lookback: 15m
+sql: |
+  SELECT
+    action || '|' || coalesce(coalesce(attrs->>'repo', attrs->>'org'), '-')       AS dedup_key,
+    jsonb_build_object('action', action,
+                       'scope', coalesce(attrs->>'repo', attrs->>'org')) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actors', jsonb_agg(DISTINCT actor))              AS context,
+    max(event_time)                                                      AS last_event_time
+  FROM caib.events
+  WHERE module = 'github_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action IN (
+      -- 3883d9a0 (secret scanning), org-scoped actions
+      'secret_scanning.disable',
+      'secret_scanning_new_repos.disable',
+      'repository_secret_scanning.disable',
+      -- ccd55945 (push protection), org-scoped actions
+      'org.secret_scanning_push_protection_disable',
+      'org.secret_scanning_push_protection_new_repos_disable',
+      'org.secret_scanning_custom_pattern_push_protection_disabled',
+      'repository_secret_scanning_custom_pattern_push_protection.disabled',
+      -- 8622c92d (high-risk configuration), org-scoped actions
+      'org.advanced_security_disabled_for_new_repos',
+      'org.advanced_security_disabled_on_all_repos',
+      'org.advanced_security_policy_selected_member_disabled',
+      'org.disable_oauth_app_restrictions',
+      'org.disable_two_factor_requirement',
+      'repo.advanced_security_disabled',
+      -- CAIB additions
+      'repository_secret_scanning_push_protection.disable',
+      'org.disable_saml',
+      'ip_allow_list.disable'
+    )
+  GROUP BY action, coalesce(attrs->>'repo', attrs->>'org')

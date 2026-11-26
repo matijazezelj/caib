@@ -1,0 +1,20 @@
+# CAIB's own rule. An organization's web audit log can be quiet for a weekend
+# in a small org, so the window is the "sparse SaaS" 24h from the HOWTO. With
+# CAIB_GITHUB_AUDIT_INCLUDE=git|all the source is far chattier; shorten it then.
+id: github_audit.dead_man
+enabled: true
+module: github_audit
+title: "github_audit has gone silent (no events in 24h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'github_audit'                                  AS dedup_key,
+    jsonb_build_object('module', 'github_audit')    AS entity,
+    jsonb_build_object('window', '24 hours')        AS context,
+    now()                                           AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'github_audit'
+      AND ingested_at > now() - interval '24 hours'
+  )

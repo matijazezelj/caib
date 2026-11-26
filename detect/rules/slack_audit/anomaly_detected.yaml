@@ -1,0 +1,26 @@
+# Written from scratch for CAIB (no SigmaHQ basis). Slack runs its own
+# anomaly detection (Tor exit nodes, IOC-listed IPs, session-cookie replay,
+# scraping tools, excessive downloads) and logs the result as action
+# 'anomaly' with details.reason[]. Those are pre-correlated, high-signal
+# events; surfacing every one is the cheapest detection this source offers.
+# Allow-listed ASNs/IP ranges are excluded by Slack before logging.
+id: slack_audit.anomaly_detected
+enabled: true
+module: slack_audit
+title: "Slack flagged anomalous user/app behavior"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(attrs->>'anomaly_reasons', '-') AS dedup_key,
+    jsonb_build_object('actor', actor, 'reasons', attrs->>'anomaly_reasons')  AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'src_ips', jsonb_agg(DISTINCT host(src_ip)),
+                       'user_agents', jsonb_agg(DISTINCT attrs->>'user_agent')) AS context,
+    max(event_time)                                                          AS last_event_time
+  FROM caib.events
+  WHERE module = 'slack_audit'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND action = 'anomaly'
+  GROUP BY actor, attrs->>'anomaly_reasons'

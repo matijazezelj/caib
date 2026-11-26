@@ -1,0 +1,22 @@
+# Written from scratch for CAIB (no SigmaHQ basis). Absence shape: an
+# Enterprise org logs user_login/file_downloaded all day, so six silent hours
+# means the owner's token was revoked (it dies with the owner's account or a
+# re-install), the app was uninstalled, or the poller is crash-looping. Very
+# small orgs may want 24h.
+id: slack_audit.dead_man
+enabled: true
+module: slack_audit
+title: "slack_audit has gone silent (no events in 6h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'slack_audit'                                  AS dedup_key,
+    jsonb_build_object('module', 'slack_audit')    AS entity,
+    jsonb_build_object('window', '6 hours')        AS context,
+    now()                                          AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'slack_audit'
+      AND ingested_at > now() - interval '6 hours'
+  )

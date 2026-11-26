@@ -1,0 +1,217 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T12:01:02.003Z",
+        "uniqueQualifier": "1212345678901234520",
+        "applicationName": "drive",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-drive-1212345678901234520\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "erin@example.com",
+        "profileId": "100000000000000000005"
+      },
+      "events": [
+        {
+          "type": "acl_change",
+          "name": "change_document_access_scope",
+          "parameters": [
+            {
+              "name": "doc_id",
+              "value": "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789synth"
+            },
+            {
+              "name": "doc_title",
+              "value": "Q4 payroll export"
+            },
+            {
+              "name": "doc_type",
+              "value": "spreadsheet"
+            },
+            {
+              "name": "owner",
+              "value": "erin@example.com"
+            },
+            {
+              "name": "visibility",
+              "value": "people_with_link"
+            },
+            {
+              "name": "old_value",
+              "multiValue": [
+                "none"
+              ]
+            },
+            {
+              "name": "new_value",
+              "multiValue": [
+                "can_view"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "acl_change",
+          "name": "change_document_visibility",
+          "parameters": [
+            {
+              "name": "doc_id",
+              "value": "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789synth"
+            },
+            {
+              "name": "doc_title",
+              "value": "Q4 payroll export"
+            },
+            {
+              "name": "doc_type",
+              "value": "spreadsheet"
+            },
+            {
+              "name": "owner",
+              "value": "erin@example.com"
+            },
+            {
+              "name": "visibility",
+              "value": "people_with_link"
+            },
+            {
+              "name": "old_value",
+              "multiValue": [
+                "private"
+              ]
+            },
+            {
+              "name": "new_value",
+              "multiValue": [
+                "people_with_link"
+              ]
+            },
+            {
+              "name": "visibility_change",
+              "value": "external"
+            },
+            {
+              "name": "primary_event",
+              "boolValue": true
+            }
+          ]
+        }
+      ],
+      "ipAddress": "198.51.100.99"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T12:05:00.000Z",
+        "uniqueQualifier": "2312345678901234521",
+        "applicationName": "drive",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-drive-2312345678901234521\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "alice@example.com",
+        "profileId": "100000000000000000001"
+      },
+      "events": [
+        {
+          "type": "acl_change",
+          "name": "change_document_visibility",
+          "parameters": [
+            {
+              "name": "doc_id",
+              "value": "1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210synth"
+            },
+            {
+              "name": "doc_title",
+              "value": "Team offsite plan"
+            },
+            {
+              "name": "doc_type",
+              "value": "document"
+            },
+            {
+              "name": "owner",
+              "value": "alice@example.com"
+            },
+            {
+              "name": "visibility",
+              "value": "private"
+            },
+            {
+              "name": "old_value",
+              "multiValue": [
+                "people_within_domain_with_link"
+              ]
+            },
+            {
+              "name": "new_value",
+              "multiValue": [
+                "private"
+              ]
+            },
+            {
+              "name": "primary_event",
+              "boolValue": true
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.10"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T12:07:31.640Z",
+        "uniqueQualifier": "3412345678901234522",
+        "applicationName": "drive",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-drive-3412345678901234522\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "bob@example.com",
+        "profileId": "100000000000000000002"
+      },
+      "events": [
+        {
+          "type": "access",
+          "name": "download",
+          "parameters": [
+            {
+              "name": "doc_id",
+              "value": "1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210synth"
+            },
+            {
+              "name": "doc_title",
+              "value": "Team offsite plan"
+            },
+            {
+              "name": "doc_type",
+              "value": "document"
+            },
+            {
+              "name": "owner",
+              "value": "alice@example.com"
+            },
+            {
+              "name": "visibility",
+              "value": "private"
+            },
+            {
+              "name": "primary_event",
+              "boolValue": true
+            }
+          ]
+        }
+      ],
+      "ipAddress": "198.51.100.23",
+      "ownerDomain": "example.com"
+    }
+  ]
+}
