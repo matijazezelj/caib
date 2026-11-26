@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# No job writes to the repo or calls the API with the token.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -76,3 +80,18 @@ jobs:
           for overlay in compose.*.yml; do
             docker compose --profile '*' -f docker-compose.yml -f "$overlay" config -q
           done
+
+  # Secret scan over the full history. Reviewed false positives are listed by
+  # fingerprint in .gitleaksignore. The image is pinned by digest (index
+  # digest, multi-arch); bump the tag and digest together.
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git --redact --no-banner --exit-code 1 /repo
