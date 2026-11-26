@@ -7,10 +7,10 @@ dependencies = ["caib-core", "caib-pollers", "caib-agentapi"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
-    "ruff>=0.16.7",
-    "pyyaml>=6",
-    "boto3>=1.43.93",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+    "pyyaml>=6.0.4",
+    "boto3>=1.44.9",
 ]
 
 [tool.uv]
