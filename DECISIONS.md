@@ -896,3 +896,36 @@ type); file-provisioned datasource and all six dashboards verified in a
 throwaway container. **etcd 3.7.4** — patch releases, base image now Debian 13,
 still runs as root, our command line works. **uv 0.13.10** — all three Python
 images build against the unchanged `uv.lock` with `--frozen`.
+
+## 2026-11-26 — HA failover test asserts detection continuity
+
+An external reviewer made "validate detection continuity during database
+failover" a P0 before public release: `make ha-failover-test` proved Patroni
+promotion and zero landing loss, but nothing about detect.
+
+The test now runs a probe lander (`scripts/ha_detect_probe.py`) whose
+envelopes fire `aws_cloudtrail.root_console_login` (chosen for its 60s
+interval; the 300s rules would push the bound to ~7 min). Key A streams at
+1/s from before the kill until after promotion, so events still inside the
+60s safety lag at kill time are covered. A new key B lands after promotion.
+Asserted: alert A before the kill; alert B within 240s of landing (60s lag +
+60s interval + 15s tick + a detect restart); per key, alert event_count ==
+events in caib.events == lander commits (higher = a re-run window
+double-counted, lower = lost); exactly one 'new' outbox row per alert;
+loader and detect heartbeats stamped after promotion on the new primary's
+clock.
+
+Measured (arm64 laptop, graceful `docker stop` of the leader, 2 runs):
+promotion 2.1s, writes resume 11.7–13.3s, first post-failover alert
+130.0/130.5s after the stop (118.0/116.9s after landing — the safety lag
+plus rule interval, as designed). Detect crashed on the broken connection
+and compose restarted it once per run: the conn.closed/conn.broken re-raise
+doing its job. Negative control: `compose stop detect` at the kill →
+`FAIL: DETECTION GAP — no alert for post-failover key B 240s after it
+landed`. A hard kill (TTL 30s) is not measured.
+
+Found on the way: `ha_inserter.py` recomputed event_time on every retry of
+the same seq; the loader's conflict key is (event_time, dedup_hash), so an
+ambiguous COMMIT retried across a second boundary would have become a
+duplicate. Fixed (time fixed per seq). The EXIT trap now restarts the
+stopped node so a failed run doesn't leave a two-node cluster.
