@@ -851,3 +851,26 @@ user's call:
   description does not mention.
 - Enums are prose in the schema rather than `Literal`. They are still
   rejected server-side with a clear error.
+
+## 2026-11-26 — Public-release audit; wording; GitHub security settings
+
+The repo is public, so it was audited as already exposed. gitleaks and
+trufflehog ran over a mirror clone (216 commits including PR refs), PR text
+and the available CI logs. There were two gitleaks hits in history, both false
+positives: a shell variable holding the lab default, and a synthetic
+Cloudflare `token_id`. Nothing needed rotating. History is not rewritten:
+PR refs and existing clones would keep the old commits anyway.
+
+Applied with the owner's agreement:
+- New commits use the GitHub noreply address. Older commits keep a personal
+  address; that was accepted.
+- Secret scanning, push protection, Dependabot alerts and security fixes,
+  CodeQL default setup, and private vulnerability reporting are on.
+- `main` deliberately has no branch ruleset.
+- Business-context wording was neutralised. That covers four phrases in the
+  spec, among them "fractional CISO client" and "consulting-pitch artifact",
+  plus one in CLAUDE.md. Wording only; no locked decision changed.
+
+The audit found that five detection rules cite Sigma IDs which do not exist
+upstream. They are being corrected in the public-polish PR, along with README,
+SECURITY.md and community-file fixes.

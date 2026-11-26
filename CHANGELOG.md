@@ -12,6 +12,13 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Public-release audit
+
+- Audited the public repo (history, PR text, CI logs, docs, GitHub settings):
+  no real secrets. GitHub secret scanning, push protection, Dependabot alerts,
+  CodeQL and private vulnerability reporting enabled; business-context wording
+  in the spec neutralised.
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent

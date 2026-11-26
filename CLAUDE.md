@@ -40,11 +40,12 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
    Enterprise Grid token, Zoom S2S app, KnowBe4 key.
 5. ~~Agent query layer~~ — done (`docs/AGENT_API.md`).
 6. ~~Reliability/ops backlog~~ — done.
-7. ~~Supply chain / CI~~ — done. Left: repo still private, no signing key for
-   tagged releases.
+7. ~~Supply chain / CI~~ — done. Left: no signing key for tagged releases. The
+   repo is public (since November 2026); GitHub secret scanning + push
+   protection, Dependabot alerts, CodeQL and private vulnerability reporting
+   are on. `main` has no ruleset (user's choice, 2026-11-26).
 8. Optional: Phase 9 archive tier (pg_lake spike first, spec AC at the
-   bottom of the spec); a consulting blog post from the bench + DECISIONS
-   findings.
+   bottom of the spec); a blog post from the bench + DECISIONS findings.
 
 ## How to work here (habits the user approved)
 
@@ -78,8 +79,8 @@ Ranked; 1–4 are credential-gated. #5–#7 are done (PRs #4, #5, #16, and the
   container per session; CI uses a service container).
 - `make up` auto-creates `.env` with **generated** passwords
   (`scripts/init_env.sh`); `scripts/preflight.sh` then refuses to start if the
-  example passwords meet a non-loopback `CAIB_BIND_ADDR` (both ports are
-  loopback-bound by default).
+  example passwords meet a non-loopback `CAIB_BIND_ADDR` (Postgres, Grafana
+  and the agent API all publish to loopback by default).
   Stack: `make up` / `make demo` (no creds, seeds all 4 modules, fires alerts)
   / `make down`. Volumes persist across down/up.
 - Release confidence: `make test`, `make bench`, `make ha-failover-test`

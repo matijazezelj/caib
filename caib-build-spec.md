@@ -12,7 +12,7 @@ Revision 2 changes, for orientation: TimescaleDB Community Edition is now a core
 
 A self-hostable cloud/SaaS audit-log SIEM on boring infrastructure: **Vector + PostgreSQL/TimescaleDB + Grafana**, packaged with Docker Compose. Each log source is a **module** (AWS CloudTrail, GCP Audit, Cloudflare, Slack, Zoom, KnowBe4) that ships everything needed end-to-end: collector config, field mapping, migrations, a provisioned Grafana dashboard, seed detection rules, a dead-man rule, and test fixtures.
 
-Target user: a small security team (or fractional CISO client) that wants their SaaS audit logs searchable, dashboarded, and covered by baseline detections within an afternoon, without operating OpenSearch.
+Target user: a small security team (or the consultant who looks after one) that wants their SaaS audit logs searchable, dashboarded, and covered by baseline detections within an afternoon, without operating OpenSearch.
 
 Working name is `caib` (rename is a find/replace; keep it lowercase in code).
 
@@ -588,9 +588,9 @@ Idempotent by `chunk_name`; a crash mid-export re-runs and overwrites the unveri
 
 Generates/replays **1M representative events** (module mix from fixtures, timestamps spread over 30 days) through landing → loader, then records to `bench/results/<version>-<date>.json` (committed):
 raw fixture bytes · heap size · TOAST size · each index size (incl. `search_text`'s share) · compressed-chunk size after forcing compression · compression ratio · ingest events/sec · dedup re-insert throughput against a **compressed** chunk · representative query latency before/after compression (module+time filter, actor top-N, `search_text ILIKE`).
-No pass/fail thresholds — this is measurement, not a gate. The output is also the honest sales artifact: "1M CloudTrail-shaped events: X GB JSON → Y GB hot → Z MB compressed" beats any generic database claim.
+No pass/fail thresholds — this is measurement, not a gate. The output is also the honest headline number: "1M CloudTrail-shaped events: X GB JSON → Y GB hot → Z MB compressed" beats any generic database claim.
 
-**`make demo` is a first-class deliverable** (the consulting-pitch artifact): seed every enabled module's fixtures into landing with timestamps rewritten into the last 24h → loader `--once` → `refresh_continuous_aggregate` on both caggs → `detect --advance-watermarks` is **not** used here (demo *wants* alerts): instead seed, load, run `detect --once` with watermarks defaulted an hour back → print the Grafana URL. Cold clone to populated dashboards + firing sample alerts in under two minutes, no cloud credentials.
+**`make demo` is a first-class deliverable** (the zero-credential first impression): seed every enabled module's fixtures into landing with timestamps rewritten into the last 24h → loader `--once` → `refresh_continuous_aggregate` on both caggs → `detect --advance-watermarks` is **not** used here (demo *wants* alerts): instead seed, load, run `detect --once` with watermarks defaulted an hour back → print the Grafana URL. Cold clone to populated dashboards + firing sample alerts in under two minutes, no cloud credentials.
 
 ## Build phases
 
@@ -625,6 +625,6 @@ In order; a phase is done when its acceptance criteria pass and `make test` is g
 1. Final name — `caib` assumed.
 2. Defaults: compress 7d, retain 90d events / 365d alerts+caggs — confirm.
 3. First poll module: Cloudflare (simplest auth) assumed over Slack (needs Enterprise Grid to test live).
-4. TSL is fine for self-hosted client deployments, but some enterprises blanket-ban non-OSI dependencies — is a degraded vanilla-Postgres mode ever worth building, or is TimescaleDB simply a stated requirement? (Spec assumes: stated requirement.)
+4. TSL is fine for self-hosted deployments, but some enterprises blanket-ban non-OSI dependencies — is a degraded vanilla-Postgres mode ever worth building, or is TimescaleDB simply a stated requirement? (Spec assumes: stated requirement.)
 5. License for CAIB itself.
-6. Archive tier: is 90d-local + Iceberg-beyond the right default shape for your client base, or should some deployments simply raise local retention and skip Phase 9? (Spec assumes: archive is opt-in and most deployments skip it.)
+6. Archive tier: is 90d-local + Iceberg-beyond the right default shape for typical deployments, or should some deployments simply raise local retention and skip Phase 9? (Spec assumes: archive is opt-in and most deployments skip it.)
