@@ -191,27 +191,42 @@ Detection continuity is checked the same way in every mode: an alert before the 
 a new alert for events landed after it, each alert's `event_count` exactly equal to
 its events in `caib.events`, and one `new` outbox row per alert.
 
-| Mode | Fault | What it adds | Measured (arm64 laptop; kill/partition: 2 runs, fresh cluster each) |
+| Mode | Fault | What it adds | Measured |
 |---|---|---|---|
-| `stop` | `docker stop` (Patroni releases the leader key) | zero committed-write loss asserted | promotion 1.4s, writes resume 14.5s, post-failover alert 131s after the stop (1 run) |
-| `kill` | `docker kill` (SIGKILL; key must expire) | promotion inside `[ttl − loop_wait − 1, ttl + loop_wait + retry_timeout]` = [19s, 50s], computed from the live Patroni config; faster means the key was released, so not a hard failure | promotion 26.1/26.6s, writes resume 30.3/30.9s, post-failover alert 98.9/98.8s; rejoin by `pg_rewind` in 4s |
-| `partition` | `docker network disconnect` (leader alive, cut off from etcd, HAProxy and replicas) | the isolated leader's last accepted write (real INSERTs over its local socket) is earlier than the new leader taking the key; the rows it accepted while isolated are on no node after it rejoins | isolated leader refuses writes from 11.0/12.1s, new leader at 23.3/23.6s, writes resume 28.5/28.4s, post-failover alert 92.7/93.0s; rejoin by `pg_rewind` in 4–5s |
+| `stop` | `docker stop` (Patroni releases the leader key) | zero committed-write loss asserted | promotion 1.4–1.7s, writes resume 9.5–14.5s |
+| `kill` | `docker kill` (SIGKILL; key must expire) | promotion inside `[ttl − loop_wait − 1, ttl + loop_wait + retry_timeout]` = [19s, 50s], computed from the live Patroni config; faster means the key was released, so not a hard failure | promotion 25.5–26.6s, writes resume 29.8–31.7s; rejoin by `pg_rewind` in 4s |
+| `partition` | `docker network disconnect` (leader alive, cut off from etcd, HAProxy and replicas) | the isolated leader's last accepted write (real INSERTs over its local socket, proven to work before the fault) is earlier than the new leader taking the key; the rows it accepted while isolated are on no node after it rejoins | isolated leader refuses writes from 10.4–12.1s, new leader at 22.0–23.6s, writes resume 27.7–29.5s; rejoin by `pg_rewind` in 4–5s |
+
+Measured on an arm64 laptop: four `kill` and four `partition` runs, run back to back
+on four fresh clusters (`make ha-chaos-test`), and three `stop` runs. Earlier runs
+on reused clusters while the test was being built gave hard-failure promotion
+22.5–28.4s and an isolated-leader write window of up to 16.8s; quote those as the
+outer range. The bounds follow from Patroni's loop: a cut-off leader demotes when its
+next key refresh fails after `retry_timeout`, which takes up to `loop_wait +
+retry_timeout` (20s). The first alert for events landed after the failover came 62–120s
+after they landed in every mode: the 60s safety lag plus wherever the rule's 60s
+interval happened to fall. It is not a property of the failure mode. Detect crashes on
+the broken connection, and compose restarts it until a primary answers: once or twice
+per `stop`, and 7–8 times per hard failure.
 
 Replication is **asynchronous** (no `synchronous_mode` in `ha/patroni.yml`). A hard
 kill or partition can therefore lose commits the replicas had not received. `kill` and
-`partition` measure that loss instead of asserting zero: 0 acknowledged writes lost in
-every run at 20 writes/s, which shows the lag was small, not that loss cannot happen.
-The partition runs also show the real exposure. The cut-off leader kept accepting
-writes for 10–12s (19 and 21 probe writes) until Patroni demoted it, and `pg_rewind`
-then discarded them. Here no application could reach it, because every client goes
-through HAProxy. A client that can still reach an isolated leader directly would get
-those writes acknowledged and then lose them. If you need zero loss on a hard failure,
-set `synchronous_mode: true`, and accept that writes stall while no synchronous
-replica is available.
+`partition` measure that loss instead of asserting zero. Every run lost 0
+acknowledged writes at 20 writes/s, which shows the lag was small, not that loss
+cannot happen. The partition runs also show the real exposure. The cut-off leader
+accepted writes for 10–17s (18–30 probe writes) until Patroni demoted it, and
+`pg_rewind` then discarded them. Here no application could reach it, because every
+client goes through HAProxy. A client that can still reach an isolated leader
+directly would get those writes acknowledged and then lose them. Patroni's
+`synchronous_mode: true` only promotes a replica that holds every acknowledged
+commit. It falls back to async when no synchronous replica is up, unless
+`synchronous_mode_strict` is set, which blocks writes instead. Neither is tested here.
 
 Negative controls showed the new checks can fail. `HA_KILL_SIGNAL=TERM` (a graceful
 stop disguised as a kill) fails the lower bound. `patronictl pause` plus a manual
-failover (the isolated leader never demotes) fails with `SPLIT BRAIN`.
+failover (the isolated leader never demotes) fails with `SPLIT BRAIN`. A partition run
+interrupted 5s after the fault restored the node from its EXIT trap and reported the
+cluster healthy.
 
 **Promoting the lab overlay to real hosts:**
 

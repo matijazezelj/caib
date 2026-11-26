@@ -198,14 +198,14 @@ Honest list, so nothing here is a surprise in an audit:
   together by `scripts/check_image_pins.sh` failing CI when they disagree.
 - The HA overlay runs a **single** etcd node — fine for a lab, a single point
   of failure anywhere real. See the HA section of the README.
-- HA replication is **asynchronous**. On a hard failure (crash, partition) the
-  commits the replicas had not received are lost, and a cut-off leader keeps
-  accepting writes for up to ~loop_wait + retry_timeout (measured 10–12s) before
-  Patroni demotes it; `pg_rewind` discards them when it rejoins.
-  `make ha-chaos-test` measures both. Use `synchronous_mode: true` in
-  `ha/patroni.yml` if that loss is unacceptable. Failover after a hard failure
-  takes the Patroni TTL (measured 23–27s with `ttl: 30`), not the ~2s of a
-  graceful stop.
+- HA replication is **asynchronous**. On a hard failure (crash, partition), the
+  replicas may not have received the last commits, and those are lost. A cut-off
+  leader also keeps accepting writes until Patroni demotes it, which takes up to
+  loop_wait + retry_timeout (measured 10–17s). `pg_rewind` discards those writes when
+  it rejoins. `make ha-chaos-test` measures both. Patroni's `synchronous_mode` (and
+  `synchronous_mode_strict`, which blocks writes rather than fall back to async)
+  closes that gap but is untested here. After a hard failure, failover waits out the
+  Patroni TTL (measured 22–28s with `ttl: 30`), compared with ~2s for a graceful stop.
 - `make restore-test` is the only proof your backups work. Run it.
 
 ## 8. Upgrading images
