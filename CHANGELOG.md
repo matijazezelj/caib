@@ -12,6 +12,18 @@ is the index, not the record.
 Everything so far. Phases 0–8 of `caib-build-spec.md` are the initial build and
 are not itemised here; what follows is what changed after it, by pull request.
 
+### Configurable retention
+
+- Raw-event retention is configurable: `CAIB_EVENTS_RETENTION_DAYS` (e.g. 2555
+  for 7 years, 0 = never drop) and `CAIB_CAGG_RETENTION_DAYS`, applied by
+  `migrate` idempotently. Unset changes nothing, so the 90/400-day defaults and
+  hand-tuned policies stay. Bad values fail migrate before anything changes.
+  Disk sizing per retention period in docs/DEPLOY.md.
+- Agent API: the event lookback ceiling now follows the configured raw-event
+  retention (read live per request; none when retention is 0) instead of a fixed
+  90 days, and is reported as `window.max_lookback_days`. MCP instructions and
+  docs/AGENT_API.md updated.
+
 ### Model-selection guidance
 
 - `docs/AGENT_API.md`: which Claude model and effort to point at the agent
