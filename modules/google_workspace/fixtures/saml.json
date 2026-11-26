@@ -1,0 +1,90 @@
+{
+  "kind": "admin#reports#activities",
+  "etag": "\"synthetic-page\"",
+  "items": [
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T14:00:00.250Z",
+        "uniqueQualifier": "6712345678901234540",
+        "applicationName": "saml",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-saml-6712345678901234540\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "alice@example.com",
+        "profileId": "100000000000000000001"
+      },
+      "events": [
+        {
+          "type": "login",
+          "name": "login_success",
+          "parameters": [
+            {
+              "name": "application_name",
+              "value": "Salesforce"
+            },
+            {
+              "name": "initiated_by",
+              "value": "idp"
+            },
+            {
+              "name": "orgunit_path",
+              "value": "/Sales"
+            },
+            {
+              "name": "saml_status_code",
+              "value": "SUCCESS_URI"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "203.0.113.10"
+    },
+    {
+      "kind": "admin#reports#activity",
+      "id": {
+        "time": "2026-11-25T14:03:12.700Z",
+        "uniqueQualifier": "7812345678901234541",
+        "applicationName": "saml",
+        "customerId": "C03synth0"
+      },
+      "etag": "\"synthetic-saml-7812345678901234541\"",
+      "actor": {
+        "callerType": "USER",
+        "email": "bob@example.com",
+        "profileId": "100000000000000000002"
+      },
+      "events": [
+        {
+          "type": "login",
+          "name": "login_failure",
+          "parameters": [
+            {
+              "name": "application_name",
+              "value": "Salesforce"
+            },
+            {
+              "name": "initiated_by",
+              "value": "sp"
+            },
+            {
+              "name": "failure_type",
+              "value": "failure_app_not_configured_for_user"
+            },
+            {
+              "name": "orgunit_path",
+              "value": "/Engineering"
+            },
+            {
+              "name": "saml_status_code",
+              "value": "REQUEST_DENIED_URI"
+            }
+          ]
+        }
+      ],
+      "ipAddress": "198.51.100.23"
+    }
+  ]
+}

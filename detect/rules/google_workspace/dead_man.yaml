@@ -1,0 +1,21 @@
+# Absence shape: silence = a rotated/deleted service-account key, revoked
+# domain-wide delegation, a suspended impersonated admin, or a crash-looping
+# poller. 24h because a small org can be quiet overnight; login events alone
+# should still arrive daily on any working day.
+id: google_workspace.dead_man
+enabled: true
+module: google_workspace
+title: "google_workspace has gone silent (no events in 24h)"
+severity: high
+interval: 900
+sql: |
+  SELECT
+    'google_workspace'                                 AS dedup_key,
+    jsonb_build_object('module', 'google_workspace')   AS entity,
+    jsonb_build_object('window', '24 hours')           AS context,
+    now()                                              AS last_event_time
+  WHERE NOT EXISTS (
+    SELECT 1 FROM caib.events
+    WHERE module = 'google_workspace'
+      AND ingested_at > now() - interval '24 hours'
+  )

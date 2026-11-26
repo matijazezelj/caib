@@ -1,0 +1,27 @@
+# CAIB's own rule: a Drive item's link sharing went to "anyone with the link"
+# or "public on the web" — readable by anyone outside the organisation who has
+# the URL. No SigmaHQ equivalent. Expect some legit sharing; tune by owner or
+# doc_type once real data shows the baseline.
+id: google_workspace.drive_file_made_public
+enabled: true
+module: google_workspace
+title: "Google Drive file shared with anyone who has the link / public"
+severity: medium
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')       AS dedup_key,
+    jsonb_build_object('actor', actor, 'doc_id', target,
+                       'doc_title', max(attrs->>'doc_title'))  AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'visibility', jsonb_agg(DISTINCT attrs->>'new_value')) AS context,
+    max(event_time)                                            AS last_event_time
+  FROM caib.events
+  WHERE module = 'google_workspace'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND attrs->>'application' = 'drive'
+    AND action = 'change_document_visibility'
+    AND string_to_array(attrs->>'new_value', ',')
+        && ARRAY['people_with_link', 'public_on_the_web']
+  GROUP BY actor, target

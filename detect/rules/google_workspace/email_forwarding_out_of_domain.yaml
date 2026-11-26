@@ -1,0 +1,25 @@
+# A mailbox started auto-forwarding to an address outside the domain — the
+# classic quiet exfiltration step after an account takeover.
+# Based on SigmaHQ 2a0bb2dd-eb5f-4517-8cb9-404f8ba764a5 "Google Workspace Out
+# Of Domain Email Forwarding" by Tom Kluter
+# (https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/gcp/gworkspace/login/gcp_gworkspace_out_of_domain_email_forwarding.yml),
+# Detection Rule License 1.1. Ours raises the level to high.
+id: google_workspace.email_forwarding_out_of_domain
+enabled: true
+module: google_workspace
+title: "Google Workspace mailbox forwards out of the domain"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')        AS dedup_key,
+    jsonb_build_object('actor', actor, 'destination', target)   AS entity,
+    jsonb_build_object('events', count(*)::int)                 AS context,
+    max(event_time)                                             AS last_event_time
+  FROM caib.events
+  WHERE module = 'google_workspace'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND attrs->>'application' = 'login'
+    AND action = 'email_forwarding_out_of_domain'
+  GROUP BY actor, target

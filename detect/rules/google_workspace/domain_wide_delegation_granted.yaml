@@ -1,0 +1,27 @@
+# An API client (service account) was given domain-wide delegation: it can now
+# impersonate any user for the listed scopes without their consent. Legit
+# integrations do this rarely; an attacker with admin does it for persistence.
+# Based on SigmaHQ 04e2a23a-9b29-4a5c-be3a-3542e3f982ba "Google Workspace
+# Granted Domain API Access" by Austin Songer
+# (https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/gcp/gworkspace/admin/gcp_gworkspace_granted_domain_api_access.yml),
+# Detection Rule License 1.1. Ours raises the level to high.
+id: google_workspace.domain_wide_delegation_granted
+enabled: true
+module: google_workspace
+title: "Google Workspace domain-wide delegation granted to an API client"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')     AS dedup_key,
+    jsonb_build_object('actor', actor, 'api_client', target) AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'scopes', jsonb_agg(DISTINCT attrs->>'api_scopes')) AS context,
+    max(event_time)                                          AS last_event_time
+  FROM caib.events
+  WHERE module = 'google_workspace'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND attrs->>'application' = 'admin'
+    AND action = 'AUTHORIZE_API_CLIENT_ACCESS'
+  GROUP BY actor, target

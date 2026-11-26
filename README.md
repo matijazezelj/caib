@@ -150,6 +150,7 @@ Enable a module by starting compose with its profile, e.g.
 | `gcp_audit` | push (Pub/Sub → Vector) | ready: ingest + 5 rules + dashboard; live Pub/Sub verification pending |
 | `azure_activity` | poller (ARM REST) | ready: ingest + 5 rules + dashboard; live verification pending |
 | `cloudflare_audit` | poller | ready: ingest + 5 rules + dashboard; live API verification pending a token |
+| `google_workspace` | poller (Admin SDK Reports API) | SYNTHETIC: ingest + 6 rules + dashboard built from docs; live verification pending |
 | `slack_audit` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
 | `zoom` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |
 | `knowbe4` | poller | recipe in [docs/NEW_MODULE_HOWTO.md](docs/NEW_MODULE_HOWTO.md) |

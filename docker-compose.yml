@@ -144,6 +144,26 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  poller-google-workspace:
+    image: caib-poller:dev
+    build:
+      context: .
+      dockerfile: pollers/Dockerfile
+    profiles: ["google_workspace"]
+    environment:
+      CAIB_MODULE: google_workspace
+      CAIB_PG_URL: postgresql://caib_app:${CAIB_PG_APP_PASSWORD}@timescaledb:5432/caib?sslmode=${CAIB_PG_SSLMODE:-prefer}
+      # Missing values fail at poller startup, not here (see CLAUDE.md gotcha).
+      CAIB_GOOGLE_WORKSPACE_SA_KEY_B64: ${CAIB_GOOGLE_WORKSPACE_SA_KEY_B64:-}
+      CAIB_GOOGLE_WORKSPACE_ADMIN_EMAIL: ${CAIB_GOOGLE_WORKSPACE_ADMIN_EMAIL:-}
+      CAIB_GOOGLE_WORKSPACE_CUSTOMER_ID: ${CAIB_GOOGLE_WORKSPACE_CUSTOMER_ID:-}
+      CAIB_GOOGLE_WORKSPACE_STREAMS: ${CAIB_GOOGLE_WORKSPACE_STREAMS:-}
+      CAIB_GOOGLE_WORKSPACE_BACKFILL: ${CAIB_GOOGLE_WORKSPACE_BACKFILL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   vector-aws-cloudtrail:
     image: timberio/vector:0.62.0-debian
     profiles: ["aws_cloudtrail"]

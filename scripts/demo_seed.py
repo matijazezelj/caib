@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "pollers"))
 from caib_core import detect, loader, notify
 from caib_pollers.modules.azure_activity import envelope as az_envelope
 from caib_pollers.modules.cloudflare_audit import envelope as cf_envelope
+from caib_pollers.modules.google_workspace import envelopes as gw_envelopes
 
 UTC = datetime.UTC
 SEED = 42
@@ -96,6 +97,16 @@ def gcp_envelope(entry: dict) -> dict:
         "attrs": {k: v for k, v in attrs.items() if v is not None},
         "raw": entry,
     }
+
+
+def gw_demo_envelopes() -> list[dict]:
+    """google_workspace fixture pages -> envelopes via the poller's own mapping
+    (one envelope per activity event)."""
+    out = []
+    for page in sorted((ROOT / "modules/google_workspace/fixtures").glob("*.json")):
+        for activity in json.loads(page.read_text())["items"]:
+            out.extend(gw_envelopes(activity))
+    return out
 
 
 def demo_timestamps(rng: random.Random, n: int, now: datetime.datetime) -> list[datetime.datetime]:
@@ -187,6 +198,7 @@ def main() -> None:
         + [("cloudflare_audit", cf_envelope(r)) for r in cf_records]
         + [("gcp_audit", gcp_envelope(e)) for e in gcp_entries]
         + [("azure_activity", az_envelope(r)) for r in az_records]
+        + [("google_workspace", e) for e in gw_demo_envelopes()]
     )
     batches: list[tuple[str, dict]] = []
     i = 0

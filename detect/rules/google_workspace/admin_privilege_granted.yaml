@@ -1,0 +1,28 @@
+# Someone got admin rights: super admin (GRANT_ADMIN_PRIVILEGE), a delegated
+# admin privilege, or an admin role assignment (ASSIGN_ROLE). Taking over or
+# adding an admin is the shortest path to owning the whole tenant.
+# Based on SigmaHQ 2d1b83e4-17c6-4896-a37b-29140b40a788 "Google Workspace User
+# Granted Admin Privileges" by Austin Songer
+# (https://github.com/SigmaHQ/sigma/blob/master/rules/cloud/gcp/gworkspace/admin/gcp_gworkspace_user_granted_admin_privileges.yml),
+# Detection Rule License 1.1. Ours adds ASSIGN_ROLE and raises the level to high.
+id: google_workspace.admin_privilege_granted
+enabled: true
+module: google_workspace
+title: "Google Workspace admin privilege or role granted"
+severity: high
+interval: 60
+lookback: 15m
+sql: |
+  SELECT
+    coalesce(actor, '-') || '|' || coalesce(target, '-')     AS dedup_key,
+    jsonb_build_object('actor', actor, 'grantee', target)    AS entity,
+    jsonb_build_object('events', count(*)::int,
+                       'actions', jsonb_agg(DISTINCT action),
+                       'roles', jsonb_agg(DISTINCT attrs->>'role_name')) AS context,
+    max(event_time)                                          AS last_event_time
+  FROM caib.events
+  WHERE module = 'google_workspace'
+    AND ingested_at > %(wm_from)s AND ingested_at <= %(wm_to)s
+    AND attrs->>'application' = 'admin'
+    AND action IN ('GRANT_ADMIN_PRIVILEGE', 'GRANT_DELEGATED_ADMIN_PRIVILEGES', 'ASSIGN_ROLE')
+  GROUP BY actor, target
