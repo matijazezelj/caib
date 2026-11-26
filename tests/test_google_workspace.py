@@ -108,7 +108,8 @@ def test_admin_mapping_and_key_actor():
     assert grant["attrs"]["event_type"] == "USER_SETTINGS"
     dwd = by_action("AUTHORIZE_API_CLIENT_ACCESS")
     assert dwd["target"] == "109876543210987654321"
-    assert "mail.google.com" in dwd["attrs"]["api_scopes"]
+    assert dwd["attrs"]["api_scopes"] == (
+        "https://mail.google.com/,https://www.googleapis.com/auth/drive")
     system = by_action("CREATE_USER")
     assert system["actor"] == "SYSTEM"
     assert system["attrs"]["caller_type"] == "KEY"
@@ -129,7 +130,8 @@ def test_multi_event_activity_fans_out_with_indexed_ids():
 def test_token_and_saml_mapping():
     tok = [e for e in all_envelopes() if e["attrs"]["application"] == "token"][1]
     assert tok["target"] == "987654321098-synthetic.apps.googleusercontent.com"
-    assert tok["attrs"]["scope"].startswith("https://mail.google.com/,")
+    assert tok["attrs"]["scope"] == (
+        "https://mail.google.com/,https://www.googleapis.com/auth/userinfo.email")
     assert tok["attrs"]["app_name"] == "Mail Organizer Pro"
     saml_fail = by_action("login_failure", app="saml")
     assert saml_fail["outcome"] == "failure"
